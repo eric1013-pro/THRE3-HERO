@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THRE3RC 3D AUTO CHESS</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        
+        /* UI 레이어 */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* 상단 상태창 (타이머) */
+        #top-bar { text-align: center; padding: 20px; background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%); pointer-events: auto; }
+        #timer-text { font-size: 3rem; font-weight: 900; color: #00ffff; text-shadow: 0 0 20px #00ffff; margin: 0; }
+        #phase-text { font-size: 1.2rem; color: #fff; margin-top: 5px; letter-spacing: 2px; }
+
+        /* 하단 로스터 (영웅 선택) */
+        #bottom-bar { padding: 20px; background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, transparent 100%); pointer-events: auto; display: flex; justify-content: center; gap: 15px; overflow-x: auto; }
+        .roster-card { width: 80px; height: 100px; background: rgba(30, 40, 50, 0.8); border: 2px solid #45a29e; border-radius: 10px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; box-shadow: 0 0 10px rgba(69, 162, 158, 0.5); backdrop-filter: blur(5px); }
+        .roster-card:hover { transform: translateY(-10px); border-color: #66fcf1; box-shadow: 0 0 20px #66fcf1; }
+        .roster-card span { font-size: 0.8rem; font-weight: bold; color: white; margin-top: 5px; }
+        
+        /* 정보 팝업 (클릭 시) */
+        #info-panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: rgba(15, 20, 30, 0.95); border: 2px solid #00ffff; border-radius: 15px; padding: 30px; color: white; text-align: center; width: 300px; box-shadow: 0 0 30px rgba(0,255,255,0.4); display: none; pointer-events: auto; transition: 0.2s; z-index: 100; backdrop-filter: blur(10px); }
+        #info-panel h2 { color: #00ffff; margin-top: 0; text-shadow: 0 0 10px #00ffff; }
+        #info-panel p { font-size: 1.1rem; line-height: 1.5; color: #ccc; }
+        .close-btn { margin-top: 20px; padding: 10px 20px; background: #ff0055; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .close-btn:hover { background: #ff3377; box-shadow: 0 0 15px #ff0055; }
+
+        /* 중앙 안내 메시지 */
+        #center-msg { position: absolute; top: 40%; width: 100%; text-align: center; font-size: 4rem; font-weight: 900; color: #ff0055; text-shadow: 0 0 30px #ff0055; opacity: 0; transition: 0.5s; pointer-events: none; }
+    </style>
+    <!-- Three.js 및 Tween.js 라이브러리 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+</head>
+<body>
+
+    <!-- 3D 캔버스 영역 -->
+    <div id="canvas-container"></div>
+
+    <!-- 2D UI 오버레이 -->
+    <div id="ui-layer">
+        <div id="top-bar">
+            <div id="timer-text">10.0</div>
+            <div id="phase-text">배치 단계 - 영웅을 체스판으로 드래그하세요</div>
+        </div>
+        
+        <div id="center-msg">BATTLE START!</div>
+
+        <div id="info-panel">
+            <h2 id="info-name">영웅 이름</h2>
+            <p id="info-stats">HP: 100 | ATK: 10</p>
+            <p id="info-skill" style="color:#e1b12c;">스킬: 스킬 이름</p>
+            <button class="close-btn" onclick="closeInfo()">닫기</button>
+        </div>
+
+        <div id="bottom-bar" id="roster">
+            <!-- JS에서 동적 생성 -->
+        </div>
+    </div>
+
+<script>
+    // --- 1. 영웅 데이터 (고급스러운 3D 도형 형태로 매핑) ---
+    const HERO_DB = [
+        { id: 'aegis', name: '아이기스 (방패병)', hp: 320, atk: 12, skill: '빛의 방벽', color: 0x7f8c8d, shape: 'box' },
+        { id: 'sniper', name: '호크아이 (저격수)', hp: 110, atk: 45, skill: '헤드샷', color: 0xe74c3c, shape: 'cone' },
+        { id: 'medic', name: '루멘 (치유사)', hp: 130, atk: 6, skill: '광역 힐', color: 0x2ecc71, shape: 'sphere' },
+        { id: 'phantom', name: '팬텀 (암살자)', hp: 160, atk: 25, skill: '그림자 은신', color: 0x9b59b6, shape: 'cylinder' },
+        { id: 'titan', name: '타이탄 (메카닉)', hp: 300, atk: 14, skill: '자폭 명령', color: 0x34495e, shape: 'box' },
+        { id: 'solar', name: '솔라 (태양술사)', hp: 135, atk: 28, skill: '태양 격발', color: 0xf1c40f, shape: 'sphere' }
+    ];
+
+    // --- 2. 3D 씬(Scene) 초기화 ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050505, 0.02); // 고급스러운 배경 안개
+
+    // 카메라 (탑다운 쿼터뷰)
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 15, 20);
+    camera.lookAt(0, 0, 0);
+
+    // 렌더러
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true; // 그림자 활성화
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // 조명 세팅 (고급스러운 분위기)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    const pointLight = new THREE.PointLight(0x00ffff, 1, 20);
+    pointLight.position.set(0, 5, 0);
+    scene.add(pointLight);
+
+    // --- 3. 3D 보드(체스판) 생성 ---
+    const boardTiles = [];
+    const tileGeo = new THREE.BoxGeometry(2.8, 0.2, 2.8);
+    
+    // 아군 타일 (파란빛) / 적군 타일 (붉은빛)
+    const playerTileMat = new THREE.MeshStandardMaterial({ color: 0x112233, roughness: 0.2, metalness: 0.8 });
+    const enemyTileMat = new THREE.MeshStandardMaterial({ color: 0x331111, roughness: 0.2, metalness: 0.8 });
+
+    function createBoard() {
+        // 아군 보드 (z: 1.5 ~ 7.5)
+        for(let row=0; row<3; row++) {
+            for(let col=0; col<3; col++) {
+                let tile = new THREE.Mesh(tileGeo, playerTileMat.clone());
+                tile.position.set(col * 3 - 3, 0, row * 3 + 1.5);
+                tile.receiveShadow = true;
+                tile.userData = { isTile: true, isPlayer: true, occupied: false };
+                scene.add(tile);
+                boardTiles.push(tile);
+            }
+        }
+        // 적군 보드 (z: -1.5 ~ -7.5)
+        for(let row=0; row<3; row++) {
+            for(let col=0; col<3; col++) {
+                let tile = new THREE.Mesh(tileGeo, enemyTileMat.clone());
+                tile.position.set(col * 3 - 3, 0, -(row * 3 + 1.5));
+                tile.receiveShadow = true;
+                tile.userData = { isTile: true, isPlayer: false, occupied: false };
+                scene.add(tile);
+                boardTiles.push(tile);
+            }
+        }
+    }
+    createBoard();
+
+    // --- 4. 영웅 생성 및 관리 ---
+    let playerUnits = [];
+    let enemyUnits = [];
+
+    // 기하학적 도형(모양) 반환 함수
+    function getGeometry(shape) {
+        if(shape === 'box') return new THREE.BoxGeometry(1.5, 2, 1.5);
+        if(shape === 'sphere') return new THREE.SphereGeometry(1, 32, 32);
+        if(shape === 'cylinder') return new THREE.CylinderGeometry(0.8, 0.8, 2, 32);
+        if(shape === 'cone') return new THREE.ConeGeometry(1, 2.5, 16);
+        return new THREE.BoxGeometry(1, 2, 1);
+    }
+
+    function spawnHero3D(heroData, isPlayer, position) {
+        const geo = getGeometry(heroData.shape);
+        const mat = new THREE.MeshPhysicalMaterial({ 
+            color: heroData.color, metalness: 0.5, roughness: 0.1, 
+            clearcoat: 1.0, clearcoatRoughness: 0.1, emissive: heroData.color, emissiveIntensity: 0.2 
+        });
+        
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(position);
+        mesh.position.y = 1; // 바닥 위로 띄움
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        // 체력바(HP)로 사용할 녹색 평면 생성
+        const hpGeo = new THREE.PlaneGeometry(1.5, 0.2);
+        const hpMat = new THREE.MeshBasicMaterial({ color: 0x2ecc71, side: THREE.DoubleSide });
+        const hpBar = new THREE.Mesh(hpGeo, hpMat);
+        hpBar.position.set(0, 2, 0);
+        mesh.add(hpBar); // 부모 객체에 종속
+        
+        mesh.userData = { 
+            ...heroData, maxHp: heroData.hp, isPlayer: isPlayer, hpMesh: hpBar, isDragging: false 
+        };
+        
+        scene.add(mesh);
+        if(isPlayer) playerUnits.push(mesh);
+        else enemyUnits.push(mesh);
+
+        // 생성 애니메이션 (위에서 떨어짐)
+        mesh.position.y = 5;
+        new TWEEN.Tween(mesh.position).to({ y: 1 }, 500).easing(TWEEN.Easing.Bounce.Out).start();
+
+        return mesh;
+    }
+
+    // UI 하단 로스터 생성
+    const bottomBar = document.getElementById('bottom-bar');
+    HERO_DB.forEach(hero => {
+        let card = document.createElement('div');
+        card.className = 'roster-card';
+        card.style.borderColor = '#' + hero.color.toString(16);
+        card.innerHTML = `
+            <div style="width:30px; height:30px; border-radius:50%; background:#${hero.color.toString(16)}; margin-bottom:5px;"></div>
+            <span>${hero.name.split(' ')[0]}</span>
+        `;
+        // 클릭 시 보드에 자동 배치 (빈 곳 찾아서)
+        card.onclick = () => {
+            if(gamePhase !== 'PLACEMENT') return;
+            if(playerUnits.length >= 3) return alert("최대 3명까지만 출전 가능합니다.");
+            
+            let emptyTile = boardTiles.find(t => t.userData.isPlayer && !t.userData.occupied);
+            if(emptyTile) {
+                let unit = spawnHero3D(hero, true, emptyTile.position);
+                emptyTile.userData.occupied = true;
+                unit.userData.currentTile = emptyTile;
+            }
+        };
+        bottomBar.appendChild(card);
+    });
+
+    // --- 5. 드래그 앤 드롭 및 클릭 인터랙션 ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let draggedObject = null;
+    let dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1); // y=1 평면
+    let pointerDownPos = { x: 0, y: 0 };
+    let hoverLight = new THREE.PointLight(0xffffff, 0, 5); // 드래그 시 발광 효과
+    scene.add(hoverLight);
+
+    window.addEventListener('pointerdown', (e) => {
+        if(gamePhase !== 'PLACEMENT') return;
+        pointerDownPos = { x: e.clientX, y: e.clientY };
+
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        const intersects = raycaster.intersectObjects(playerUnits);
+        if(intersects.length > 0) {
+            draggedObject = intersects[0].object;
+            // 꾸욱 누를 때 고급스러운 이펙트 (크기 증가, 발광)
+            new TWEEN.Tween(draggedObject.scale).to({ x: 1.2, y: 1.2, z: 1.2 }, 200).easing(TWEEN.Easing.Quadratic.Out).start();
+            draggedObject.material.emissiveIntensity = 0.8;
+            hoverLight.intensity = 2;
+        }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+        if(gamePhase !== 'PLACEMENT') return;
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        if(draggedObject) {
+            raycaster.setFromCamera(mouse, camera);
+            let intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(dragPlane, intersectPoint);
+            
+            // 부드럽게 마우스 위치로 따라오도록 (Lerp)
+            draggedObject.position.x += (intersectPoint.x - draggedObject.position.x) * 0.2;
+            draggedObject.position.z += (intersectPoint.z - draggedObject.position.z) * 0.2;
+            draggedObject.position.y = 2; // 드래그 중 살짝 띄움
+
+            hoverLight.position.copy(draggedObject.position);
+        }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+        if(!draggedObject) return;
+
+        // 클릭(정보 보기) vs 드래그(이동) 판정
+        let dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+        
+        if(dist < 5) {
+            // 살짝 터치함 -> 정보 창 띄우기
+            showInfo(draggedObject.userData);
+            resetDragVisuals(draggedObject);
+        } else {
+            // 드래그 드롭 처리 -> 가장 가까운 아군 타일에 스냅
+            let closestTile = null;
+            let minDist = Infinity;
+            boardTiles.forEach(tile => {
+                if(tile.userData.isPlayer) {
+                    let d = draggedObject.position.distanceTo(tile.position);
+                    if(d < minDist) { minDist = d; closestTile = tile; }
+                }
+            });
+
+            if(closestTile && !closestTile.userData.occupied) {
+                // 이전 타일 비우기
+                if(draggedObject.userData.currentTile) draggedObject.userData.currentTile.userData.occupied = false;
+                
+                closestTile.userData.occupied = true;
+                draggedObject.userData.currentTile = closestTile;
+                
+                // 타일 중앙으로 자석처럼 찰칵 붙는 애니메이션
+                new TWEEN.Tween(draggedObject.position).to({ x: closestTile.position.x, y: 1, z: closestTile.position.z }, 300).easing(TWEEN.Easing.Back.Out).start();
+            } else {
+                // 자리가 없으면 원래 자리로 돌아감
+                let oldTile = draggedObject.userData.currentTile;
+                if(oldTile) {
+                    new TWEEN.Tween(draggedObject.position).to({ x: oldTile.position.x, y: 1, z: oldTile.position.z }, 300).easing(TWEEN.Easing.Back.Out).start();
+                }
+            }
+            resetDragVisuals(draggedObject);
+        }
+        draggedObject = null;
+    });
+
+    function resetDragVisuals(obj) {
+        new TWEEN.Tween(obj.scale).to({ x: 1, y: 1, z: 1 }, 200).start();
+        obj.material.emissiveIntensity = 0.2;
+        hoverLight.intensity = 0;
+        if(obj.userData.currentTile) {
+            new TWEEN.Tween(obj.position).to({ y: 1 }, 200).start();
+        }
+    }
+
+    // --- 6. 정보창 로직 ---
+    function showInfo(data) {
+        document.getElementById('info-name').innerText = data.name;
+        document.getElementById('info-stats').innerText = `체력: ${data.hp} / 공격력: ${data.atk}`;
+        document.getElementById('info-skill').innerText = `✨ 고유 스킬: ${data.skill}`;
+        document.getElementById('info-panel').style.display = 'block';
+        document.getElementById('info-panel').style.transform = 'translate(-50%, -50%) scale(1)';
+    }
+    function closeInfo() {
+        document.getElementById('info-panel').style.display = 'none';
+        document.getElementById('info-panel').style.transform = 'translate(-50%, -50%) scale(0.9)';
+    }
+
+    // --- 7. 게임 상태 및 타이머 로직 ---
+    let gamePhase = 'PLACEMENT'; // PLACEMENT -> BATTLE
+    let timeLeft = 10.0;
+    const timerText = document.getElementById('timer-text');
+    const phaseText = document.getElementById('phase-text');
+    let battleInterval = null;
+
+    // AI 적 생성
+    function spawnEnemies() {
+        let availableTiles = boardTiles.filter(t => !t.userData.isPlayer);
+        for(let i=0; i<3; i++) {
+            let hero = HERO_DB[Math.floor(Math.random() * HERO_DB.length)];
+            let tileIdx = Math.floor(Math.random() * availableTiles.length);
+            let tile = availableTiles.splice(tileIdx, 1)[0];
+            
+            let enemy = spawnHero3D(hero, false, tile.position);
+            tile.userData.occupied = true;
+            enemy.userData.currentTile = tile;
+        }
+    }
+
+    const timerInterval = setInterval(() => {
+        if(gamePhase === 'PLACEMENT') {
+            timeLeft -= 0.1;
+            timerText.innerText = Math.max(0, timeLeft).toFixed(1);
+            if(timeLeft <= 3) timerText.style.color = '#ff0055'; // 3초 남으면 빨간색
+            
+            if(timeLeft <= 0) {
+                // 배치 끝, 전투 시작
+                gamePhase = 'BATTLE';
+                phaseText.innerText = "자동 전투가 시작되었습니다!";
+                document.getElementById('bottom-bar').style.opacity = '0.3';
+                document.getElementById('bottom-bar').style.pointerEvents = 'none';
+                
+                // 적 생성
+                spawnEnemies();
+
+                // BATTLE 애니메이션 메시지
+                let msg = document.getElementById('center-msg');
+                msg.style.opacity = '1';
+                msg.style.transform = 'scale(1.2)';
+                setTimeout(() => { msg.style.opacity = '0'; msg.style.transform = 'scale(1)'; }, 1500);
+
+                // 자동 전투 루프 시작
+                battleInterval = setInterval(battleTick, 1500);
+            }
+        }
+    }, 100);
+
+    // --- 8. 3D 전투 및 시각 효과 로직 ---
+    function battleTick() {
+        let pAlive = playerUnits.filter(u => u.userData.hp > 0);
+        let eAlive = enemyUnits.filter(u => u.userData.hp > 0);
+
+        if(pAlive.length === 0 || eAlive.length === 0) {
+            clearInterval(battleInterval);
+            phaseText.innerText = pAlive.length > 0 ? "🏆 승리했습니다!" : "💀 패배했습니다.";
+            return;
+        }
+
+        // 아군 공격 애니메이션
+        pAlive.forEach(attacker => {
+            let target = eAlive[Math.floor(Math.random() * eAlive.length)];
+            performAttackAnim(attacker, target);
+        });
+
+        // 적군 공격 애니메이션 (반박자 느리게)
+        setTimeout(() => {
+            eAlive.forEach(attacker => {
+                let targets = playerUnits.filter(u => u.userData.hp > 0);
+                if(targets.length === 0) return;
+                let target = targets[Math.floor(Math.random() * targets.length)];
+                performAttackAnim(attacker, target);
+            });
+        }, 750);
+    }
+
+    function performAttackAnim(attacker, target) {
+        // 1. 공격자가 살짝 점프하며 커지는 이펙트
+        new TWEEN.Tween(attacker.position).to({ y: 2 }, 200).yoyo(true).repeat(1).start();
+        new TWEEN.Tween(attacker.scale).to({ x: 1.3, y: 1.3, z: 1.3 }, 200).yoyo(true).repeat(1).start();
+
+        // 2. 투사체(레이저 볼) 생성 및 날아가기
+        const projGeo = new THREE.SphereGeometry(0.3, 8, 8);
+        const projMat = new THREE.MeshBasicMaterial({ color: attacker.userData.color });
+        const proj = new THREE.Mesh(projGeo, projMat);
+        proj.position.copy(attacker.position);
+        proj.position.y = 1.5;
+        scene.add(proj);
+
+        new TWEEN.Tween(proj.position).to({ x: target.position.x, y: 1.5, z: target.position.z }, 400).onComplete(() => {
+            scene.remove(proj); // 적중 시 투사체 제거
+            
+            // 데미지 적용
+            target.userData.hp -= attacker.userData.atk;
+            let hpRatio = Math.max(0, target.userData.hp / target.userData.maxHp);
+            target.userData.hpMesh.scale.x = hpRatio; // 체력바 줄어듦
+            target.userData.hpMesh.material.color.setHex(hpRatio > 0.5 ? 0x2ecc71 : 0xe74c3c); // 반 이하 시 빨간색
+
+            // 피격 이펙트 (빨갛게 번쩍임)
+            let originColor = target.material.emissive.getHex();
+            target.material.emissive.setHex(0xff0000);
+            setTimeout(() => { if(target.userData.hp > 0) target.material.emissive.setHex(originColor); }, 200);
+
+            // 사망 처리
+            if(target.userData.hp <= 0) {
+                new TWEEN.Tween(target.rotation).to({ x: Math.PI / 2 }, 300).start(); // 쓰러짐
+                target.material.opacity = 0.5;
+                target.material.transparent = true;
+                target.userData.hpMesh.visible = false;
+                target.userData.currentTile.userData.occupied = false;
+            }
+        }).start();
+    }
+
+    // --- 9. 렌더링 루프 (애니메이션 업데이트) ---
+    function animate(time) {
+        requestAnimationFrame(animate);
+        TWEEN.update(time);
+
+        // 체력바가 항상 카메라를 바라보도록 설정 (빌보드 효과)
+        [...playerUnits, ...enemyUnits].forEach(unit => {
+            if(unit.userData.hpMesh.visible) {
+                unit.userData.hpMesh.lookAt(camera.position);
+            }
+        });
+
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    // 창 크기 조절 대응
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
