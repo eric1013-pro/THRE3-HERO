@@ -14,76 +14,76 @@
             --gold: #ffb703; --gold-glow: rgba(255, 183, 3, 0.5);
             --neon-cyan: #00f3ff; --neon-cyan-glow: rgba(0, 243, 255, 0.4);
             --neon-purple: #b000ff; --neon-purple-glow: rgba(176, 0, 255, 0.3);
-            --bg-deep: #020408; --glass-card: rgba(8, 14, 24, 0.75);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --bg-deep: #020408; --glass-card: rgba(8, 16, 32, 0.75);
+            --glass-border: rgba(0, 243, 255, 0.2);
             --danger: #ff2a5f; --safe: #00ff88;
         }
 
         * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-deep); font-family: 'Noto Serif KR', serif; color: #f0f4f8; }
         
-        /* 세로형 뷰포트 완벽 압축 (잘림 및 이탈 차단) */
+        /* 세로형 모바일 뷰포트 절대 정렬 (상하단 잘림 및 이탈 완벽 차단) */
         #viewport-wrapper { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
         #canvas-3d-context { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: auto; }
         #fx-html-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 15; overflow: hidden; }
 
-        /* 생동감 넘치는 딥 오로라 라이브 그라데이션 */
-        .live-aurora-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at 10% 15%, rgba(0, 243, 255, 0.12) 0%, transparent 45%), radial-gradient(circle at 90% 85%, rgba(176, 0, 255, 0.15) 0%, transparent 45%); animation: auroraPulse 12s infinite alternate linear; }
+        /* 생동감 넘치는 사이버 딥 오로라 라이브 그라데이션 */
+        .live-aurora-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at 15% 20%, rgba(0, 243, 255, 0.15) 0%, transparent 50%), radial-gradient(circle at 85% 85%, rgba(176, 0, 255, 0.2) 0%, transparent 50%); animation: auroraPulse 10s infinite alternate linear; }
         @keyframes auroraPulse { 0% { transform: scale(1); } 100% { transform: scale(1.15); } }
 
-        /* 프리미엄 글래스모피즘 & 쫀득한 고무줄 젤리 버튼 */
-        .glass-panel { background: var(--glass-card); backdrop-filter: blur(30px) saturate(150%); -webkit-backdrop-filter: blur(30px) saturate(150%); border: 1px solid var(--glass-border); box-shadow: 0 20px 50px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.05); }
+        /* 프리미엄 글래스모피즘 및 유연한 젤리 텐션 모션 */
+        .glass-panel { background: var(--glass-card); backdrop-filter: blur(30px) saturate(160%); -webkit-backdrop-filter: blur(30px) saturate(160%); border: 1px solid var(--glass-border); box-shadow: 0 20px 50px rgba(0,0,0,0.65), inset 0 1px 1px rgba(255,255,255,0.08); }
         .jelly-bounce { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s, filter 0.2s; cursor: pointer; }
         .jelly-bounce:active { transform: scale(0.88) translateY(2px); filter: brightness(1.3); }
 
         .game-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 25px env(safe-area-inset-right, 20px) 25px env(safe-area-inset-left, 20px); box-sizing: border-box; }
         .game-screen.active { display: flex; }
 
-        /* --- 인게임 일체형 전술 브리핑 토스트 알림창 --- */
-        #tactical-briefing-toast { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 350px; border-radius: 16px; padding: 15px 20px; text-align: center; font-weight: bold; font-size: 0.9rem; border-left: 4px solid var(--neon-cyan); box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 2000; pointer-events: none; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s; opacity: 0; }
+        /* --- 인게임 일체형 전술 브리핑 상단 토스트 알림창 --- */
+        #tactical-briefing-toast { position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 360px; border-radius: 18px; padding: 15px 20px; text-align: center; font-weight: 700; font-size: 0.9rem; border-left: 4px solid var(--neon-cyan); box-shadow: 0 12px 35px rgba(0,0,0,0.6); z-index: 2000; pointer-events: none; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s; opacity: 0; }
         #tactical-briefing-toast.show { top: calc(env(safe-area-inset-top, 20px) + 15px); opacity: 1; }
 
         /* --- 1. 보안 인트로 --- */
         #screen-intro { background: #000; z-index: 100; }
-        .intro-brand { font-family: 'Cinzel'; font-size: 3rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 15px var(--neon-cyan), 0 0 40px var(--neon-purple); letter-spacing: 6px; text-align: center; }
+        .intro-brand { font-family: 'Cinzel'; font-size: 3rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 15px var(--neon-cyan), 0 0 45px var(--neon-purple); letter-spacing: 6px; text-align: center; }
 
-        /* --- 2. 전술 아카이브 세이브/로드 화면 --- */
+        /* --- 2. 전술 데이터 프로필 관리 화면 --- */
         .vault-card { width: 100%; max-width: 340px; border-radius: 28px; padding: 40px 25px; text-align: center; }
-        .input-vault { width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); border-radius: 14px; color: #fff; text-align: center; font-size: 1rem; margin-bottom: 20px; font-family: 'Noto Serif KR'; }
-        .input-vault:focus { border-color: var(--neon-cyan); outline: none; box-shadow: 0 0 12px var(--neon-cyan-glow); }
-        .btn-action-block { width: 100%; padding: 16px; border-radius: 14px; font-family: 'Noto Serif KR'; font-size: 1.1rem; font-weight: 800; border: none; cursor: pointer; margin-bottom: 12px; display: block; color: white; }
-        .btn-cyan { background: linear-gradient(135deg, #00f3ff 0%, #0055ff 100%); color: #000; box-shadow: 0 6px 20px var(--neon-cyan-glow); }
+        .input-vault { width: 100%; padding: 15px; background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); border-radius: 14px; color: #fff; text-align: center; font-size: 1rem; margin-bottom: 20px; font-family: 'Noto Serif KR'; }
+        .input-vault:focus { border-color: var(--neon-cyan); outline: none; box-shadow: 0 0 12px var(--neon-cyan-glow); background: rgba(0,243,255,0.05); }
+        .btn-action-block { width: 100%; padding: 16px; border-radius: 14px; font-family: 'Noto Serif KR'; font-size: 1.1rem; font-weight: 800; border: none; cursor: pointer; margin-bottom: 12px; display: block; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .btn-cyan { background: linear-gradient(135deg, #00f3ff 0%, #0055ff 100%); color: #000; text-shadow: none; box-shadow: 0 6px 20px var(--neon-cyan-glow); }
         .btn-purple { background: linear-gradient(135deg, #b000ff 0%, #5500ff 100%); box-shadow: 0 6px 20px var(--neon-purple-glow); }
         .btn-outline { background: transparent; border: 1px solid #94a3b8; color: #e2e8f0; }
 
-        /* --- 3. 오버홀된 대시보드 로비 --- */
+        /* --- 3. 로비 메인 대시보드 --- */
         #screen-lobby { justify-content: space-between; padding: env(safe-area-inset-top, 40px) 25px env(safe-area-inset-bottom, 30px) 25px; }
         .lobby-top-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; pointer-events: auto; }
-        .commander-tag { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .commander-tag { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 700; color: #cbd5e1; }
         .lobby-title-core h1 { font-family: 'Cinzel'; font-size: 3.4rem; margin: 0; color: var(--gold); text-shadow: 0 0 25px var(--gold-glow); text-align: center; line-height: 1.1; }
-        .lobby-title-core p { font-size: 0.85rem; color: #8a9ba8; letter-spacing: 5px; text-transform: uppercase; text-align: center; margin: 8px 0 0 0; }
+        .lobby-title-core p { font-size: 0.85rem; color: #38bdf8; letter-spacing: 5px; text-transform: uppercase; text-align: center; margin: 8px 0 0 0; font-weight: 700; }
 
-        /* --- 4. 분할식 확장형 스토리 맵 (하단 3D 리워드 연동 쇼룸) --- */
+        /* --- 4. 분할식 캠페인 스토리 지도 (리워드 3D 연동 쇼룸) --- */
         #screen-story-map { display: flex; flex-direction: column; justify-content: space-between; padding: env(safe-area-inset-top, 30px) 15px env(safe-area-inset-bottom, 20px) 15px; }
+        .top-navigation-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; pointer-events: auto; }
+        .btn-circle-back { background: none; border: 1px solid var(--glass-border); color: #fff; padding: 10px 20px; border-radius: 14px; font-weight: bold; }
+        
         .split-map-viewport { width: 100%; flex-grow: 1; display: flex; flex-direction: column; gap: 15px; overflow: hidden; margin-top: 15px; }
         .scroller-node-area { width: 100%; height: 50%; overflow-y: auto; display: flex; flex-direction: column-reverse; align-items: center; gap: 45px; padding: 20px 0; -webkit-overflow-scrolling: touch; }
         .scroller-node-area::-webkit-scrollbar { display: none; }
         
-        .map-node-sphere { width: 74px; height: 74px; border-radius: 50%; background: #070b12; border: 3px solid #2d3748; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 2; }
+        .map-node-sphere { width: 74px; height: 74px; border-radius: 50%; background: #070b12; border: 3px solid #334155; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 2; }
         .map-node-sphere.cleared { border-color: var(--safe); background: rgba(0, 255, 136, 0.08); box-shadow: 0 0 15px rgba(0,255,136,0.2); }
         .map-node-sphere.target { border-color: var(--gold); background: rgba(212, 175, 55, 0.15); box-shadow: 0 0 25px var(--gold); transform: scale(1.1); animation: nodePulse 1.8s infinite; }
         .map-node-sphere.locked { opacity: 0.3; filter: grayscale(100%); }
-        .pipeline-vector { position: absolute; width: 4px; height: 50px; background: #2d3748; z-index: 1; top: -48px; }
+        .pipeline-vector { position: absolute; width: 4px; height: 50px; background: #334155; z-index: 1; top: -48px; }
         .pipeline-vector.cleared { background: var(--safe); }
         @keyframes nodePulse { 0%, 100% { box-shadow: 0 0 10px var(--gold-glow); } 50% { box-shadow: 0 0 25px var(--gold); } }
 
-        .reward-preview-panel { width: 100%; height: 48%; border-radius: 24px; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; position: relative; pointer-events: auto; }
-        .sub-3d-stage-zone { width: 100%; height: 110px; border-radius: 14px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); margin: 5px 0; }
+        .reward-preview-panel { width: 100%; height: 48%; border-radius: 24px; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; position: relative; pointer-events: auto; border-color: var(--glass-border); }
+        .sub-3d-stage-zone { width: 100%; height: 110px; border-radius: 14px; background: rgba(15,23,42,0.5); border: 1px solid var(--glass-border); margin: 5px 0; }
 
-        /* --- 5. WebRTC 원격 대전 제어소 --- */
-        .room-display-node { padding: 15px; background: rgba(0,0,0,0.5); border-radius: 14px; border: 1px dashed var(--neon-cyan); font-family: 'Cinzel'; font-size: 1.6rem; color: var(--neon-cyan); font-weight: 900; letter-spacing: 4px; margin: 15px 0; user-select: text; -webkit-user-select: text; }
-
-        /* --- 6. 배틀 필드 HUD (시네마틱 / 실시간 통계 일체화) --- */
+        /* --- 5. 배틀 필드 HUD 레이어 --- */
         #hud-battle-core { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; padding: env(safe-area-inset-top, 20px) 15px env(safe-area-inset-bottom, 20px) 15px; z-index: 25; box-sizing: border-box; }
         .hud-top-row { display: flex; justify-content: space-between; align-items: center; width: 100%; pointer-events: auto; }
         .badge-hud-score { padding: 10px 18px; border-radius: 16px; min-width: 80px; text-align: center; }
@@ -95,7 +95,6 @@
         .bo5-dot.p-win { background: var(--safe); border-color: var(--safe); box-shadow: 0 0 8px var(--safe); }
         .bo5-dot.e-win { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
-        /* 사이드 패널 제어 보드 */
         .utility-floating-container { position: absolute; left: 15px; top: 110px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
         .btn-side-toggle { padding: 8px 14px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; border: 1px solid var(--glass-border); background: var(--glass-card); }
         .btn-side-toggle.active { background: rgba(0, 243, 255, 0.2); border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan-glow); }
@@ -109,13 +108,13 @@
         .ticker-bar-node { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-radius: 16px; }
         #scroller-deck-field { width: 100%; overflow-x: auto; display: flex; gap: 10px; padding: 12px 6px; border-radius: 18px; -webkit-overflow-scrolling: touch; }
         #scroller-deck-field::-webkit-scrollbar { display: none; }
-        .deck-card-node { min-width: 75px; height: 92px; border-radius: 15px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: rgba(10,15,25,0.6); }
+        .deck-card-node { min-width: 75px; height: 92px; border-radius: 15px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: rgba(15,23,42,0.6); }
         .deck-card-node .emoji { font-size: 1.3rem; margin-bottom: 4px; }
         .deck-card-node .name { font-size: 0.7rem; font-weight: 900; }
         .deck-card-node.locked-card { filter: grayscale(100%); opacity: 0.25; }
         .deck-card-node.locked-card::after { content: '🔒'; position: absolute; font-size: 1.1rem; }
 
-        /* 팝업 결과 정산 */
+        /* --- 6. 결과 정산 및 통보 --- */
         #screen-match-end { background: rgba(2,3,6,0.92); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); z-index: 300; }
         .result-box-node { width: 86%; max-width: 345px; padding: 45px 25px; border-radius: 28px; text-align: center; border: 1px solid var(--glass-border); }
 
@@ -130,7 +129,7 @@
         <div id="canvas-3d-context"></div>
         <div id="fx-html-overlay"></div>
 
-        <div id="tactical-briefing-toast" class="glass-panel">BRIEFING DATA</div>
+        <div id="tactical-briefing-toast" class="glass-panel">BRIEFING SYSTEM READY</div>
 
         <div id="screen-intro" class="game-screen active">
             <div class="neon-brand-logo" id="brand-logo-node">THRE3RIC STUDIO</div>
@@ -138,9 +137,9 @@
 
         <div id="screen-auth" class="game-screen">
             <div class="vault-card glass-panel">
-                <h2 class="room-display-node" style="border:none; margin:0; font-size:1.8rem;">TACTICAL VAULT</h2>
-                <p style="font-size:0.8rem; color:#718096; margin:0 0 25px 0;">지휘관 로컬 프로필 암호 연동 기지</p>
-                <input type="text" id="input-comm-id" class="input-vault" value="COMMANDER_ALPHA" placeholder="지휘관 코드명 입력">
+                <h2 style="font-family:'Cinzel'; margin:0 0 5px 0; color:var(--neon-cyan); letter-spacing:1px;">TACTICAL VAULT</h2>
+                <p style="font-size:0.8rem; color:#64748b; margin:0 0 25px 0;">사령관 데이터 무결성 체크 인프라</p>
+                <input type="text" id="input-comm-id" class="input-vault" value="COMMANDER_HAN" placeholder="지휘관 코드명 입력">
                 <button class="btn-action-block btn-cyan jelly-bounce" onclick="storageVault.createProfile()">신규 전술 프로필 생성</button>
                 <button class="btn-action-block btn-outline jelly-bounce" id="btn-vault-load" onclick="storageVault.loadProfile()">기존 데이터 동기화</button>
             </div>
@@ -149,14 +148,14 @@
         <div id="screen-lobby" class="game-screen">
             <div class="lobby-top-bar">
                 <div class="commander-tag">🎖️ ID: <b id="lbl-commander-identity" style="color:var(--gold);">GUEST</b></div>
-                <div class="glass-panel" style="padding:6px 12px; border-radius:10px; font-family:'Cinzel'; font-size:0.75rem; color:var(--neon-cyan);">LINKED</div>
+                <div class="glass-panel" style="padding:6px 14px; border-radius:10px; font-family:'Cinzel'; font-size:0.75rem; color:var(--neon-cyan); border-color:rgba(0,243,255,0.4);">ONLINE CONNECTED</div>
             </div>
             <div class="lobby-title-core">
                 <h1>THRE3 HERO</h1>
                 <p>Strategic Control Center</p>
             </div>
             <div style="width:100%; max-width:320px; display:flex; flex-direction:column; gap:14px;">
-                <button class="btn-action-block btn-cyan jelly-bounce" style="margin:0;" onclick="viewController.renderStoryCampaignMap()">📖 캠페인 스토리 모드</button>
+                <button class="btn-action-block btn-cyan jelly-bounce" style="margin:0;" onclick="viewController.renderStoryCampaignMap()">📖 스토리 캠페인 모드</button>
                 <button class="btn-action-block btn-purple jelly-bounce" style="margin:0;" onclick="viewController.changeScreen('ROOM_HUB')">📡 WebRTC 1vs1 원격 대전</button>
             </div>
         </div>
@@ -170,26 +169,26 @@
                     <span style="font-size:0.75rem; color:#718096;">공유용 룸 엑세스 토큰</span>
                     <div class="room-display-node" id="txt-room-token">-----</div>
                 </div>
-                <hr style="border-color:rgba(255,255,255,0.08); margin:25px 0;">
+                <hr style="border-color:rgba(0,243,255,0.1); margin:25px 0;">
                 <input type="text" id="input-target-token" class="input-vault" style="margin-bottom:10px;" placeholder="상대방 방 코드 입력">
                 <button class="btn-action-block btn-outline jelly-bounce" onclick="p2pNetwork.joinRoom()">방 코드로 원격 난입</button>
             </div>
         </div>
 
-        <div id="screen-campaign-map" class="game-screen">
+        <div id="screen-story-map" class="game-screen">
             <div class="top-navigation-bar">
                 <button class="btn-circle-back glass-panel jelly-bounce" onclick="viewController.changeScreen('LOBBY')">↩ 사령실 복귀</button>
-                <span style="font-family:'Cinzel'; font-weight:900; color:var(--gold);">CAMPAIGN MAP</span>
+                <span style="font-family:'Cinzel'; font-weight:900; color:var(--gold);">CAMPAIGN SECTORS</span>
             </div>
             <div class="split-map-viewport">
                 <div class="scroller-node-area" id="box-nodes-container"></div>
                 <div class="reward-preview-panel glass-panel">
                     <div>
                         <div style="font-size:0.7rem; color:var(--gold); font-weight:900; letter-spacing:1px;">SECTOR COMPLETION REWARD</div>
-                        <h2 id="lbl-reward-name" style="margin:2px 0 0 0; font-size:1.2rem; color:white;">영웅 사양서</h2>
+                        <h2 id="lbl-reward-name" style="margin:2px 0 0 0; font-size:1.2rem; color:white;">영웅 사양서 데이터</h2>
                     </div>
                     <div class="sub-3d-stage-zone" id="sub-3d-preview-stage"></div>
-                    <p id="lbl-reward-desc" style="font-size:0.75rem; color:#cbd5e0; margin:0; line-height:1.3; text-align:left; background:rgba(0,0,0,0.4); padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.05);"></p>
+                    <p id="lbl-reward-desc" style="font-size:0.75rem; color:#cbd5e0; margin:0; line-height:1.4; text-align:left; background:rgba(15,23,42,0.6); padding:8px; border-radius:8px; border:1px solid var(--glass-border);"></p>
                 </div>
             </div>
         </div>
@@ -218,24 +217,24 @@
             </div>
 
             <div id="panel-analytics-drawer" class="glass-panel">
-                <h4 style="margin:0 0 15px 0; color:var(--gold); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">📊 실시간 전투 분석</h4>
+                <h4 style="margin:0 0 15px 0; color:var(--gold); border-bottom:1px solid rgba(0,243,255,0.15); padding-bottom:10px;">📊 실시간 전투 분석</h4>
                 <div style="display:flex; gap:10px; font-size:0.7rem; margin-bottom:15px;">
                     <span style="color:var(--danger);">■ 가해</span> <span style="color:var(--safe);">■ 치유</span> <span style="color:#3182ce;">■ 방어</span>
                 </div>
                 <div id="analytics-content-field"></div>
             </div>
 
-            <div id="panel-spec-details" class="glass-panel" style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) scale(0.8); width:290px; border-radius:24px; padding:30px 20px; text-align:center; display:none; opacity:0; z-index:100; pointer-events:auto; border:1px solid rgba(212,175,55,0.2);">
+            <div id="panel-spec-details" class="glass-panel">
                 <h3 id="lbl-spec-title" style="font-family:'Cinzel'; color:var(--gold); margin:0 0 10px 0;">UNIT SPEC</h3>
-                <p id="lbl-spec-role" style="font-family:'Cinzel'; font-size:0.75rem; color:#aaa; margin:5px 0;"></p>
+                <p id="lbl-spec-role" style="font-family:'Cinzel'; font-size:0.75rem; color:#38bdf8; margin:5px 0; font-weight:bold;"></p>
                 <p id="lbl-spec-hp-atk" style="font-size:0.85rem; color:#e2e8f0; font-weight:bold;"></p>
-                <p id="lbl-spec-desc" style="font-size:0.8rem; color:#cbd5e0; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px; line-height:1.4; text-align:left;"></p>
+                <p id="lbl-spec-desc" style="font-size:0.8rem; color:#cbd5e0; border-top:1px solid var(--glass-border); padding-top:10px; line-height:1.4; text-align:left;"></p>
                 <button class="btn-action-block btn-cyan jelly-bounce" style="margin-top:15px; padding:10px; font-size:0.9rem; border-radius:10px;" onclick="viewController.closeSpecPanel()">확인 완료</button>
             </div>
 
             <div class="battle-footer-ctrl">
                 <div class="ticker-bar-node glass-panel">
-                    <span id="lbl-phase-ticker" style="font-size:0.85rem; font-weight:bold;">영웅 배치 단계</span>
+                    <span id="lbl-phase-ticker" style="font-size:0.85rem; font-weight:bold; color:var(--neon-cyan);">영웅 배치 단계</span>
                     <button id="btn-placement-confirm" class="jelly-bounce" style="padding:8px 18px; border-radius:10px; background:var(--gold); border:none; font-weight:900; font-size:0.8rem; display:none;" onclick="gameCore.lockPlacementPhase()">배치 완료</button>
                 </div>
                 <div id="scroller-deck-field" class="glass-panel"></div>
@@ -246,15 +245,17 @@
             <div class="result-box-node glass-panel">
                 <h1 id="txt-match-title" style="font-family:'Cinzel'; font-size:3.5rem; margin:0 0 10px 0;">VICTORY</h1>
                 <p id="txt-match-desc" style="color:#94a3b8; font-size:0.9rem; margin-bottom:35px;">전술 시뮬레이션 매치가 종료되었습니다.</p>
-                <button class="btn-action-block btn-cyan jelly-bounce" style="margin:0; width:100%;" onclick="viewController.routeBackFromBattle()">사령실 복귀</button>
+                <button class="btn-action-block btn-cyan jelly-bounce" style="margin:0; width:100%;" onclick="viewController.routeBackFromBattle()">사령실 귀환</button>
             </div>
         </div>
     </div>
 
 <script>
     // =========================================================================
-    // [1] DATABASE: 13종 영웅 마스터 명세 및 고유 각성기 정의서
+    // [버그 차단 핵심 패치]: 전역 변수를 최상단에 먼저 선언하여 인라인 HTML 호출 락다운 해제
     // =========================================================================
+    var engine3D, storageVault, p2pNetwork, viewController, uiManager, gameCore;
+
     const UNIT_DICTIONARY = [
         { id: 'u1', name: '가디언', hp: 640, atk: 22, role: 'TANK', color: 0x94a3b8, glow: 0xffffff, icon: '🛡️', unlockLv: 0, skill: '[절대성벽 방벽전개] 매 턴 개시 연산 시 50%의 난수 확률로 홀로그램 구체 방어 장막을 생성하여 피격 대미지를 완전히 흡수 차단합니다.' },
         { id: 'u2', name: '스나이퍼', hp: 140, atk: 88, role: 'DPS', color: 0xe11d48, glow: 0xff0055, icon: '🎯', unlockLv: 0, skill: '[입자 가속 집속레이저] 타격 시 탄환이 아닌 고출력 빔 라인을 대칭 동기화하여 상대의 원거리 후열 조합에 파괴적인 즉시 치명타를 투사합니다.' },
@@ -262,13 +263,12 @@
         { id: 'u4', name: '어쌔신', hp: 220, atk: 72, role: 'ASSASSIN', color: 0x8b5cf6, glow: 0xbf55ec, icon: '🗡️', unlockLv: 0, skill: '[그림자 역천 기습] 전술 가속 매트릭스가 발동하여 아군 최전방의 저지선을 우회하고, 적의 약점인 최후방 딜러나 힐러 라인을 암살 기습합니다.' },
         { id: 'u5', name: '버서커', hp: 480, atk: 48, role: 'BRUISER', color: 0xf97316, glow: 0xff6600, icon: '🪓', unlockLv: 0, skill: '[혈기 폭주 연쇄분쇄] 코어 자체 생명력 손실 비례량이 누적될수록 가해 연산 수치를 한계점 이상(최대 1.6배)으로 폭발 스케일링합니다.' },
         { id: 'u6', name: '위자드', hp: 180, atk: 75, role: 'MAGE', color: 0x3b82f6, glow: 0x00d2ff, icon: '🔮', unlockLv: 0, skill: '[차원 붕괴 유성우] 주위를 자전하는 3개의 마법 증폭 코어를 강제 가속하여, 상대 전열 전체 영역에 도트 광역 폭격을 동시 배포합니다.' },
-        // 캠페인 세터 점령 시 오픈되는 리워드 영웅 7종
         { id: 'u7', name: '크로노스', hp: 190, atk: 76, role: 'MAGE', color: 0xd4af37, glow: 0xfff000, icon: '⏳', unlockLv: 1, skill: '[시공 가속 시간역행] 라운드 교전 중 탈락 위험 지표(HP 0) 감지 시, 단 1회 자신의 물리 구조를 2턴 전 생명력 수치로 복원합니다.' },
         { id: 'u8', name: '드래곤', hp: 440, atk: 60, role: 'BRUISER', color: 0xb91c1c, glow: 0xff1111, icon: '🐉', unlockLv: 2, skill: '[멸성의 숨결 브레스] 입자 화염 가속 장치를 점화하여 전방 직선상에 위치한 적 2체에 방어 장갑을 무시하는 관통 피해를 입힙니다.' },
         { id: 'u9', name: '프로스트', hp: 170, atk: 64, role: 'MAGE', color: 0x06b6d4, glow: 0x00ffff, icon: '❄️', unlockLv: 3, skill: '[절대영도 동결파동] 타격한 적 개체의 분자 진동을 임계점 이하로 동결하여 다음 1턴 동안 자동 공격 연산 명령을 강제 락다운합니다.' },
-        { id: 'u10', name: '뱀파이어', hp: 230, atk: 72, role: 'ASSASSIN', color: 0x581c87, glow: 0xda70d6, icon: '🦇', unlockLv: 4, skill: '[영혼 대사 대미지흡혈] 가해에 성공한 마이크로 타격 총량 계수의 45%만큼을 자신의 코어 생명 수치로 실시간 드레이닝 복구합니다.' },
+        { id: 'u10', name: '뱀파이어', hp: 230, atk: 72, role: 'ASSASSIN', color: 0x581c87, glow: 0xda70d6, icon: '🦇', unlockLv: 4, skill: '[영혼 대사 대미지흡혈] 가해에 성공한 총량 계수의 45%만큼을 자신의 코어 생명 수치로 실시간 흡수 변환합니다.' },
         { id: 'u11', name: '타이탄 메카', hp: 780, atk: 34, role: 'TANK', color: 0x475569, glow: 0x94a3b8, icon: '🤖', unlockLv: 5, skill: '[철벽보강 중장갑] 나노 탄소 기반 복합 매트릭스 장갑을 장착하여 외력으로 받는 모든 유효 타격 피해량을 상시 25% 경감 고정합니다.' },
-        { id: 'u12', name: '솔라 마스터', hp: 200, atk: 84, role: 'HEAL', color: 0xeab308, glow: 0xffaa00, icon: '☀️', unlockLv: 6, skill: '[흑점 폭발 태양오라] 아군 유닛 치유 프로토콜 가동 시, 대상 개체의 물리 파괴 공격 계수를 한 턴 동안 30% 증폭시키는 오라를 주입합니다.' },
+        { id: 'u12', name: '솔라 마스터', hp: 195, atk: 82, role: 'HEAL', color: 0xeab308, glow: 0xffaa00, icon: '☀️', unlockLv: 6, skill: '[흑점 폭발 태양오라] 아군 유닛 치유 프로토콜 가동 시, 대상 개체의 물리 파괴 공격 계수를 한 턴 동안 30% 증폭시키는 오라를 주입합니다.' },
         { id: 'u13', name: '이지스 코어', hp: 900, atk: 15, role: 'TANK', color: 0x047857, glow: 0x00ffee, icon: '💠', unlockLv: 7, skill: '[궁극방역 매트릭스] 전장에 배치된 아군 전체 부대의 데이터 실시간 연산 채널을 동기화하여 고밀도 위성 방어막을 상시 제공합니다.' }
     ];
 
@@ -283,7 +283,7 @@
     ];
 
     // =========================================================================
-    // [2] 3D GRAPHICS MODULE: 배치 누수 버그 및 드롭 글로우가 완전 정렬된 엔진
+    // [2] 3D GRAPHICS MODULE
     // =========================================================================
     class FlawlessGraphicsEngine {
         constructor() {
@@ -292,8 +292,10 @@
             this.scene.fog = new THREE.FogExp2(0x020408, 0.016);
 
             this.camera = new THREE.PerspectiveCamera(54, window.innerWidth/window.innerHeight, 0.1, 1000);
-            
-            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+            this.camera.position.set(0, 22, 16);
+            this.camera.lookAt(0, -0.5, -0.5);
+
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
             this.renderer.setSize(window.innerWidth, window.innerHeight);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             this.renderer.shadowMap.enabled = true;
@@ -304,8 +306,6 @@
 
             this.raycaster = new THREE.Raycaster();
             this.pointer = new THREE.Vector2();
-            
-            // 드래그 레이어 평면 바인딩 (y=0.16 플레이 영역 고정)
             this.dragState = { activeGroup: null, previousTile: null, targetPlane: new THREE.Plane(new THREE.Vector3(0,1,0), -0.16) };
 
             this.boardTiles3D = [];
@@ -326,7 +326,6 @@
             this.sun.position.set(10, 32, 12);
             this.sun.castShadow = true;
             this.sun.shadow.mapSize.width = 2048; this.sun.shadow.mapSize.height = 2048;
-            this.sun.shadow.bias = -0.0006;
             this.scene.add(this.sun);
 
             this.spotP = new THREE.PointLight(0x00f3ff, 1.5, 35); this.spotP.position.set(-4, 4, 6); this.scene.add(this.spotP);
@@ -354,7 +353,6 @@
             const edgeBlue = new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.6 });
             const edgeRed = new THREE.LineBasicMaterial({ color: 0xff0055, transparent: true, opacity: 0.6 });
 
-            // [전술 드롭 섀도우 인디케이터] 결합 타일 구조화 정의
             const glowGeo = new THREE.PlaneGeometry(2.0, 2.0);
             const glowMat = new THREE.MeshBasicMaterial({ color: 0xffb703, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
 
@@ -364,7 +362,6 @@
                 mesh.receiveShadow = true;
                 mesh.add(new THREE.LineSegments(frameworkGeo, isPlayer ? edgeBlue : edgeRed));
 
-                // 타일 상단면 흡착 발광 인디케이터 서브 메쉬 주입
                 let indicator = new THREE.Mesh(glowGeo, glowMat.clone());
                 indicator.rotation.x = -Math.PI/2;
                 indicator.position.y = 0.17;
@@ -379,7 +376,6 @@
             for(let r=0; r<3; r++) for(let c=0; c<3; c++) spawnTileNode(c, r, false);
         }
 
-        // 증발 레이턴시 버그 차단형 완전 마운팅 모델링 결합소
         assemblePremiumFigure(hero) {
             const group = new THREE.Group();
             const bMat = new THREE.MeshPhysicalMaterial({ color: hero.color, metalness: 0.65, roughness: 0.25, clearcoat: 1.0 });
@@ -397,7 +393,7 @@
                 group.add(domeShield); group.userData.shieldFX = domeShield;
             } 
             else if(hero.role === 'DPS') {
-                group.add(new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.8, 4), bMat).translateY(1.0));
+                group.add(new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.8, 4), bMat).translateY(1.1));
                 let gun = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 1.3), gMat);
                 gun.position.set(0, 1.3, 0.3); group.add(gun);
             }
@@ -419,7 +415,7 @@
             else {
                 group.add(new THREE.Mesh(new THREE.BoxGeometry(0.76, 1.2, 0.76), bMat).translateY(0.7));
                 let spike = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.8, 4), gMat);
-                spike.position.set(0.5, 1.0, 0.3); spikesOrient(spike, group);
+                spike.position.set(0.5, 1.0, 0.3); spike.rotation.x = Math.PI/3; group.add(spike);
             }
 
             const hpPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.12), new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide }));
@@ -428,10 +424,7 @@
             group.traverse(m => { if(m.isMesh) { m.castShadow = true; m.receiveShadow = true; }});
             this.tweenAnimQueue.push({ mesh: group, act: 'breathing', baseY: 0.16, speed: 2.5, amp: 0.06 });
 
-            // [무결성 강제 업데이트 보정]: 월드 매트릭스를 강제로 갱신하여 드롭 시 투명화 버그 완벽 차단
             group.updateMatrixWorld(true);
-
-            function spikesOrient(node, g) { g.add(node); }
             return { group: group, hpMesh: hpPlane };
         }
 
@@ -476,16 +469,14 @@
             this.dragState.activeGroup.position.x += (hit.x - this.dragState.activeGroup.position.x) * 0.45;
             this.dragState.activeGroup.position.z += (hit.z - this.dragState.activeGroup.position.z) * 0.45;
 
-            // [전술 드롭 섀도우 인디케이터] 가동 처리 연산
             let closest = null; let minD = Infinity;
             this.boardTiles3D.filter(t => t.userData.isPlayerArea).forEach(t => {
-                t.userData.indicator.material.opacity = 0; // 초기화 선선언
+                t.userData.indicator.material.opacity = 0;
                 let d = this.dragState.activeGroup.position.distanceTo(t.position);
                 if(d < minD) { minD = d; closest = t; }
             });
 
             if(closest && minD < 2.5) {
-                // 부드럽게 실시간 깜빡이는 스포트라이트 오라 수식 주입
                 closest.userData.indicator.material.opacity = 0.5 + Math.sin(Date.now() * 0.015) * 0.2;
             }
         }
@@ -496,7 +487,6 @@
             let node = this.dragState.activeGroup;
             let core = node.userData.core;
 
-            // 모든 인디케이터 투명 복원
             this.boardTiles3D.forEach(t => t.userData.indicator.material.opacity = 0);
 
             let closest = null; let minD = Infinity;
@@ -505,7 +495,7 @@
                 if(d < minD) { minD = d; closest = t; }
             });
 
-            if(minD > 2.6) { // 외곽 벤치 방출 드롭
+            if(minD > 2.6) {
                 this.scene.remove(node);
                 core.tile.userData.occupied = false;
                 gameCore.pUnits = gameCore.pUnits.filter(u => u !== core);
@@ -534,7 +524,6 @@
             gameCore.evaluateReadyStateBtn();
         }
 
-        // 시네마틱 카메라 추적 무빙 및 [다이내믹 타격 진동 프로토콜] 결합 제어
         executeVisualStrikeFX(attacker, target, onCompleteCallback) {
             let start = attacker.mesh.position.clone().setY(1.2);
             let end = target.mesh.position.clone().setY(1.2);
@@ -547,18 +536,6 @@
 
             const resolveImpact = () => {
                 this.createImpactExplosion(end, attacker.glow);
-                
-                // [다이내믹 타격 진동 프로토콜] 하드웨어 가동
-                try {
-                    if(navigator.vibrate) {
-                        if(attacker.role === 'DPS' || attacker.role === 'BRUISER' || attacker.role === 'TANK') {
-                            navigator.vibrate([80, 40, 80]); // 묵직한 중장갑 파동
-                        } else {
-                            navigator.vibrate(40); // 경량 쾌속 파동
-                        }
-                    }
-                } catch(err) {}
-
                 if(gameCore.cinemaCamEnabled) {
                     new TWEEN.Tween(this.camera.position).to({ x:0, y:22, z:16 }, 250).onComplete(() => {
                         this.camera.lookAt(0, -0.5, -0.5);
@@ -569,7 +546,7 @@
                 }
             };
 
-            if(attacker.role === 'DPS' || attacker.id === 'u12') { // 초고속 집속 빔 레이저 가속 연출
+            if(attacker.role === 'DPS' || attacker.id === 'u12') {
                 let dist = start.distanceTo(end);
                 let beamMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, dist, 8).translate(0, dist/2, 0), new THREE.MeshBasicMaterial({ color: attacker.glow, transparent: true, opacity: 0.85 }));
                 beamMesh.position.copy(start); beamMesh.lookAt(end); beamMesh.rotateX(Math.PI/2);
@@ -620,11 +597,9 @@
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // 고정 뷰 카메라 시인성 맵 뷰 분기 관리소
         forceSynchronizeCameraAngle(state) {
-            // [화면 외곽 이탈 원천 차단 패치]: 모든 상위 스크린 변경 시 카메라 위치를 절대 락(Lock) 고정시킴
             const posNode = { x: 0, y: 22, z: 16 };
-            if(state === 'LOBBY' || state === 'STORY_MAP' || state === 'ROOM_HUB') {
+            if(state === 'LOBBY' || state === 'STORY_MAP' || state === 'ROOM_HUB' || state === 'AUTH') {
                 new TWEEN.Tween(this.camera.position).to(posNode, 600).easing(TWEEN.Easing.Cubic.Out).start();
                 this.camera.lookAt(0, -0.5, -0.5);
             }
@@ -638,7 +613,7 @@
             });
             let sec = time * 0.001;
             this.tweenAnimQueue.forEach(n => {
-                if(nodeValid(n)) {
+                if(n.mesh && n.mesh.position) {
                     if(n.act === 'rotate_y') n.mesh.rotation.y += n.val;
                     if(n.act === 'bobbing') n.mesh.position.y = n.baseY + Math.sin(sec * n.speed) * n.amp;
                     if(n.act === 'breathing') n.mesh.position.y = n.baseY + Math.sin(sec * n.speed + n.mesh.position.x) * n.amp;
@@ -649,29 +624,27 @@
             });
             this.renderer.render(this.scene, this.camera);
             requestAnimationFrame((t) => this.tickUpdate(t));
-
-            function nodeValid(a) { return a.mesh && a.mesh.position; }
         }
     }
 
     // =========================================================================
-    // [3] STORAGE ARCHITECTURE: 영구 세이브 로드 프로필 트래킹
+    // [3] STORAGE ARCHITECTURE
     // =========================================================================
     class LocalTacticalStorage {
-        constructor() { this.key = "THRE3_HERO_VAULT_V5"; }
+        constructor() { this.key = "THRE3_HERO_FLAWLESS_VAULT"; }
         createProfile() {
-            let id = document.getElementById('input-commander-id').value.trim();
-            if(!id) return uiManager.notify("지휘관 식별 인덱스 주입이 누락되었습니다.", 'danger');
+            let id = document.getElementById('input-comm-id').value.trim();
+            if(!id) return uiManager.notify("지휘관 코드명 주입이 누락되었습니다.", 'danger');
             let data = { id, storyProgress: 0 };
             localStorage.setItem(this.key, JSON.stringify(data));
-            uiManager.notify(`📝 신규 전술 보관소 개설 완료: [${id}]`, 'safe');
+            uiManager.notify(`📝 신규 전술 프로필 보관소 개설: [${id}]`, 'safe');
             this.applyData(data);
         }
         loadProfile() {
             let raw = localStorage.getItem(this.key);
             if(!raw) return uiManager.notify("동기화할 기존 보관소 아카이브가 없습니다.", 'danger');
             let data = JSON.parse(raw);
-            uiManager.notify(`🛰️ 동기화 가동: 지휘관 [${data.id}] 전술 로드 완료`, 'safe');
+            uiManager.notify(`🛰️ 동기화 가동: 지휘관 [${data.id}] 기록 연동`, 'safe');
             this.applyData(data);
         }
         checkSavePresence() {
@@ -698,19 +671,19 @@
     }
 
     // =========================================================================
-    // [4] WebRTC DIRECT NETWORK NODE HUB
+    // [4] WebRTC DIRECT NETWORK
     // =========================================================================
     class WebRtcArenaNetwork {
         constructor() { this.peer = null; this.conn = null; }
         hostRoom() {
             document.getElementById('box-room-code-display').style.display = 'block';
-            document.getElementById('txt-room-token').innerText = "통신 링 위성 개방중...";
+            document.getElementById('txt-room-token').innerText = "위성 회선 개방 중...";
             this.peer = new Peer();
             this.peer.on('open', id => {
                 document.getElementById('txt-room-token').innerText = id.substring(0,5).toUpperCase();
                 uiManager.notify("📡 멀티플레이 통신망 대기 주파수를 개방했습니다.", 'safe');
                 this.peer.on('connection', c => {
-                    this.conn = c; uiManager.notify("적 시그널 유체 난입 확인! 배틀 필드 동기화합니다.", 'safe');
+                    this.conn = c; uiManager.notify("적 시그널 유체 난입 확인! 배틀 그라운드를 동기화합니다.", 'safe');
                     viewController.changeScreen('HUD_BATTLE_CORE');
                     document.getElementById('hud-battle-core').style.display = 'flex';
                     gameCore.initMatchSessionBo5(0, 'PVP');
@@ -722,7 +695,7 @@
             if(!code) return uiManager.notify("진입할 아레나 토큰을 주입하십시오.", 'danger');
             this.peer = new Peer();
             this.peer.on('open', () => {
-                uiManager.notify("원격 아레나 노드에 인필트레이션 성공!", 'safe');
+                uiManager.notify("원격 아레나 매치 채널에 동기화 접속 성공!", 'safe');
                 viewController.changeScreen('HUD_BATTLE_CORE');
                 document.getElementById('hud-battle-core').style.display = 'flex';
                 gameCore.initMatchSessionBo5(0, 'PVP');
@@ -731,7 +704,7 @@
     }
 
     // =========================================================================
-    // [5] INTERFACE & VIEW CONTROLLER (일체형 브리핑 인터페이스 포함)
+    // [5] INTERFACE VIEW CONTROLLER
     // =========================================================================
     class InterfaceViewController {
         constructor() { this.subScene = null; this.subCam = null; this.subRender = null; this.subMesh = null; }
@@ -741,7 +714,7 @@
             document.getElementById('hud-battle-core').style.display = 'none';
             document.getElementById('panel-analytics-drawer').classList.remove('open');
             
-            // 글로벌 공통 카메라 보정 핸들러 호출 (이탈 원천 방어)
+            // [글로벌 이탈 버그 원천 차단 패치]: 모든 화면 전환 주기에 강제 카메라 벡터 정렬
             engine3D.forceSynchronizeCameraAngle(id);
 
             if(id === 'PLACEMENT') {
@@ -810,8 +783,7 @@
             this.subMesh = pack.group; this.subMesh.position.set(0,0,0); this.subMesh.scale.set(0.9, 0.9, 0.9);
             this.subScene.add(this.subMesh);
 
-            // [인게임 부드러운 가이드 노티 알림 노출]: 얼럿 대신 탑 배너 알림 연동
-            uiManager.notify(`🎯 전술 섹터 [${stage.name}] 선택 완료`, 'safe');
+            uiManager.notify(`🎯 전술 섹터 [${stage.name}] 분석 완료`, 'safe');
         }
 
         triggerSpecPanel(hero) {
@@ -863,7 +835,7 @@
     class UINotificationManager {
         notify(msg, type='cyan') {
             const banner = document.getElementById('tactical-briefing-toast');
-            banner.innerText = `📡 [전술브리핑] : ${msg}`;
+            banner.innerText = `📡 [브리핑] : ${msg}`;
             banner.style.borderLeftColor = type === 'danger' ? 'var(--danger)' : type === 'safe' ? 'var(--safe)' : 'var(--neon-cyan)';
             banner.classList.add('show');
             setTimeout(() => banner.classList.remove('show'), 2400);
@@ -871,7 +843,7 @@
     }
 
     // =========================================================================
-    // [6] MASTER GAME PROCESS LOGIC (5판 3선승제 통합 연산 코어)
+    // [6] MASTER GAME PROCESS CORE
     // =========================================================================
     class MasterGameProcessCore {
         constructor() {
@@ -913,7 +885,6 @@
             document.getElementById('lbl-phase-ticker').innerText = `진형 구축 단계 (ROUND ${this.round})`;
             document.getElementById('btn-placement-confirm').style.display = 'none';
 
-            // [안착 시각 누수 차단 패치]: 배치 돌입 시 카메라 고정값 강제 보정 바인딩
             new TWEEN.Tween(engine3D.camera.position).to({ x:0, y:22, z:15.5 }, 800).easing(TWEEN.Easing.Cubic.Out).start();
             engine3D.camera.lookAt(0, -0.5, -0.5);
 
@@ -957,7 +928,6 @@
                                 engine3D.scene.add(visualPack.group);
                                 this.pUnits.push(core);
 
-                                // 소환 드롭 낙하 탄성 피드백
                                 visualPack.group.position.y = 8;
                                 new TWEEN.Tween(visualPack.group.position).to({ y: 0.16 }, 500).easing(TWEEN.Easing.Bounce.Out).start();
                                 this.evaluateReadyStateBtn();
@@ -981,7 +951,7 @@
             if(this.pUnits.length < 3) return;
             this.phase = 'COMBAT';
             document.getElementById('btn-placement-confirm').style.display = 'none';
-            document.getElementById('lbl-phase-ticker').innerText = '실시간 시뮬레이션 매치 가동 중';
+            document.getElementById('lbl-phase-ticker').innerText = '실시간 오토 전투 연산 중';
             document.getElementById('scroller-deck-field').style.pointerEvents = 'none';
             document.getElementById('scroller-deck-field').style.opacity = '0.2';
 
@@ -1089,7 +1059,7 @@
             this.syncHUDScoreBoard();
 
             setTimeout(() => {
-                if(this.pWins === 3 || this.eWins === 3) { // 3승 도달 최종 정산 트리거
+                if(this.pWins === 3 || this.eWins === 3) {
                     let screen = document.getElementById('screen-match-end');
                     let title = document.getElementById('txt-match-title');
                     let desc = document.getElementById('txt-match-desc');
@@ -1115,11 +1085,10 @@
     }
 
     // =========================================================================
-    // [7] APPLICATION CORE INITIALIZATION BOOTSTRAP
+    // [7] APPLICATION CORE INITIALIZATION BOOTSTRAP (전역 스코프 누수 제어 완료)
     // =========================================================================
-    let engine3D, storageVault, p2pNetwork, viewController, uiManager, gameCore;
-
     window.onload = () => {
+        // [핵심 디버그 패치]: 전역 변수로 선언된 컨트롤러 인스턴스들을 브라우저 window 객체 스코프 레벨로 확실하게 바인딩
         engine3D = new FlawlessGraphicsEngine();
         storageVault = new LocalTacticalStorage();
         p2pNetwork = new WebRtcArenaNetwork();
@@ -1127,20 +1096,24 @@
         uiManager = new UINotificationManager();
         gameCore = new MasterGameProcessCore();
 
-        engine3D.tickUpdate(0); // 3D 그래픽 파이프라인 무한 시계 구동
+        // 3D 씬 백그라운드 틱 스타트
+        engine3D.tickUpdate(0);
         storageVault.checkSavePresence();
 
-        // 2.5초 간 인트로 브랜딩 가동 후 암호 금고 화면 진입
+        // 2.5초 간 인트로 브랜딩 가동 후 인증기 센터 전환
         setTimeout(() => {
             const intro = document.getElementById('screen-intro');
             intro.style.opacity = '0'; intro.style.transition = 'opacity 0.6s ease';
-            setTimeout(() => { intro.classList.remove('active'); viewController.changeScreen('AUTH'); }, 600);
+            setTimeout(() => { 
+                intro.classList.remove('active'); 
+                viewController.changeScreen('AUTH'); 
+            }, 600);
         }, 2500);
     };
 
-    // 15초 배치 클록 공유 백그라운드 엔진 내부 루프
+    // 15초 배치 클록 공유 백그라운드 스케줄러
     setInterval(() => {
-        if(gameCore.phase !== 'PLACEMENT') return;
+        if(!gameCore || gameCore.phase !== 'PLACEMENT') return;
         gameCore.countdown -= 0.1;
         let node = document.getElementById('txt-timer-clock');
         if(gameCore.countdown <= 0) {
