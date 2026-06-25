@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>THRE3 HERO: Absolute Masterpiece</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    
+    <style>
+        :root {
+            --gold: #d4af37; --gold-glow: rgba(212, 175, 55, 0.6);
+            --neon-blue: #00f3ff; --neon-blue-glow: rgba(0, 243, 255, 0.5);
+            --neon-purple: #b000ff; 
+            --glass-bg: rgba(12, 16, 26, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --safe: #00ff88; --danger: #ff0055;
+        }
+
+        /* 드래그, 선택 완벽 차단 / 스크롤은 특정 영역만 허용 */
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background: #02040a; font-family: 'Noto Serif KR', serif; color: #f8fafc; touch-action: none; }
+        
+        /* 3D 캔버스는 무조건 배경 100% 고정 */
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; pointer-events: auto; }
+        
+        /* VFX 및 데미지 텍스트 레이어 */
+        #vfx-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 15; overflow: hidden; }
+
+        /* 오로라 배경 */
+        .aurora { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at 20% 30%, rgba(0, 243, 255, 0.15) 0%, transparent 40%), radial-gradient(circle at 80% 70%, rgba(176, 0, 255, 0.15) 0%, transparent 40%); animation: auroraAnim 10s infinite alternate linear; }
+        @keyframes auroraAnim { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+
+        /* 글래스 및 젤리 애니메이션 */
+        .glass { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); box-shadow: 0 15px 35px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.05); }
+        .chewy { transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s, filter 0.25s; cursor: pointer; pointer-events: auto; }
+        .chewy:active { transform: scale(0.92) translateY(2px); filter: brightness(1.2); }
+
+        /* UI 레이어: 전체 덮되 터치는 통과시킴 (pointer-events: none) */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 20; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* 화면 단위 래퍼들 */
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: center; pointer-events: auto; background: rgba(2, 4, 10, 0.85); padding: 20px; box-sizing: border-box; }
+        .screen.active { display: flex; animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { 0% { opacity: 0; transform: scale(0.95); } 100% { opacity: 1; transform: scale(1); } }
+
+        /* 공통 버튼 */
+        .btn-core { width: 100%; max-width: 320px; padding: 20px; border-radius: 18px; font-family: 'Noto Serif KR'; font-size: 1.3rem; font-weight: 900; border: none; text-align: center; color: #000; margin-bottom: 15px; background: linear-gradient(135deg, #00f3ff 0%, #0055ff 100%); box-shadow: 0 8px 25px var(--neon-blue-glow); }
+
+        /* --- 로비 --- */
+        .lobby-title { text-align: center; margin-bottom: 50px; }
+        .lobby-title h1 { font-family: 'Cinzel'; font-size: 4rem; margin: 0; color: var(--gold); text-shadow: 0 0 30px var(--gold-glow); line-height: 1.1; }
+        .lobby-title p { font-size: 1rem; color: var(--neon-blue); letter-spacing: 5px; margin: 10px 0 0 0; font-weight: 900; }
+
+        /* --- 캠페인 스토리 맵 --- */
+        #screen-story { justify-content: flex-start; padding-top: env(safe-area-inset-top, 40px); }
+        .top-nav { width: 100%; max-width: 500px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-back { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 12px 20px; border-radius: 14px; font-weight: bold; }
+        
+        .map-scroller { width: 100%; max-width: 500px; height: 50%; overflow-y: auto; display: flex; flex-direction: column-reverse; align-items: center; gap: 40px; padding: 30px 0; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+        .map-scroller::-webkit-scrollbar { display: none; }
+        
+        .node-wrap { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
+        .node-wrap:nth-child(odd) { align-items: flex-start; padding-left: 20%; }
+        .node-wrap:nth-child(even) { align-items: flex-end; padding-right: 20%; }
+        
+        .map-node { width: 80px; height: 80px; border-radius: 50%; background: #070b12; border: 4px solid #334155; display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; transition: 0.3s; }
+        .map-node.cleared { border-color: var(--safe); background: rgba(0, 255, 136, 0.15); box-shadow: 0 0 20px rgba(0,255,136,0.3); }
+        .map-node.target { border-color: var(--gold); background: rgba(255, 183, 3, 0.2); box-shadow: 0 0 30px var(--gold-glow); transform: scale(1.1); animation: pulseNode 2s infinite; }
+        .map-node.locked { opacity: 0.3; filter: grayscale(100%); pointer-events: none; }
+        .node-line { position: absolute; width: 5px; height: 60px; background: #334155; z-index: 1; top: -55px; left: 50%; transform: translateX(-50%); border-radius: 3px; }
+        .node-line.cleared { background: var(--safe); box-shadow: 0 0 10px var(--safe); }
+        @keyframes pulseNode { 0%, 100% { box-shadow: 0 0 15px var(--gold-glow); } 50% { box-shadow: 0 0 35px var(--gold); } }
+
+        /* --- 인게임 BATTLE HUD (배경 투명) --- */
+        #screen-battle { background: transparent; pointer-events: none; }
+        .hud-header { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 600px; pointer-events: auto; }
+        .score-box { padding: 15px 25px; border-radius: 20px; text-align: center; min-width: 90px; }
+        .score-box h3 { font-family: 'Cinzel'; font-size: 2.2rem; margin: 0; font-weight: 900; }
+        .timer-ring { width: 75px; height: 75px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Cinzel'; font-size: 2.2rem; font-weight: 900; color: var(--gold); border: 3px solid var(--gold); background: rgba(0,0,0,0.8); box-shadow: 0 0 25px var(--gold-glow); }
+        
+        .hud-side { position: absolute; left: 20px; top: 140px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; }
+        .btn-side { padding: 12px 18px; border-radius: 16px; font-size: 0.85rem; font-weight: 900; color: white; border: 1px solid var(--glass-border); background: rgba(10,15,25,0.85); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .btn-side.active { background: rgba(0, 243, 255, 0.2); border-color: var(--neon-blue); color: var(--neon-blue); box-shadow: 0 0 20px var(--neon-blue-glow); }
+
+        .hud-footer { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; }
+        .phase-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; border-radius: 20px; }
+        
+        /* 덱 스크롤 (터치 패닝 정상화) */
+        .deck-scroller { width: 100%; overflow-x: auto; display: flex; gap: 15px; padding: 15px 10px; border-radius: 24px; touch-action: pan-x; -webkit-overflow-scrolling: touch; scroll-behavior: smooth; }
+        .deck-scroller::-webkit-scrollbar { display: none; }
+        
+        .deck-card { min-width: 85px; height: 110px; border-radius: 20px; border: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: rgba(10, 15, 25, 0.85); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .deck-card .emoji { font-size: 2rem; margin-bottom: 6px; text-shadow: 0 4px 10px rgba(0,0,0,0.8); pointer-events: none; }
+        .deck-card .name { font-size: 0.8rem; font-weight: 900; color: #e2e8f0; pointer-events: none; }
+        .info-btn { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.15); font-size: 0.8rem; font-weight: bold; display: flex; align-items: center; justify-content: center; color: #fff; border: 1px solid rgba(255,255,255,0.3); z-index: 10; }
+        .deck-card.locked { filter: grayscale(100%); opacity: 0.4; pointer-events: none; }
+
+        /* 정보창 모달 */
+        #spec-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8); width: 330px; border-radius: 30px; padding: 40px 30px; text-align: center; display: none; opacity: 0; z-index: 2000; border: 1px solid var(--gold-glow); pointer-events: auto; }
+
+        /* 결과창 */
+        #screen-result { z-index: 300; background: rgba(2, 6, 17, 0.95); backdrop-filter: blur(30px); pointer-events: auto; }
+        .result-box { width: 90%; max-width: 400px; padding: 60px 40px; border-radius: 36px; text-align: center; border: 1px solid var(--gold-glow); box-shadow: 0 0 60px rgba(255, 183, 3, 0.15); }
+
+        /* VFX 플로팅 텍스트 */
+        .fx-text { position: absolute; font-family: 'Cinzel', 'Noto Serif KR'; font-size: 3rem; font-weight: 900; color: #fff; text-shadow: 0 0 20px var(--danger), 0 5px 5px rgba(0,0,0,0.8); transform: translate(-50%, -50%); pointer-events: none; animation: floatTxt 0.9s cubic-bezier(0.1, 0.9, 0.2, 1) forwards; text-align: center; white-space: nowrap; z-index: 50; }
+        .fx-heal { color: var(--safe); text-shadow: 0 0 20px var(--safe), 0 5px 5px rgba(0,0,0,0.8); }
+        .fx-skill { font-size: 2.2rem; color: var(--gold); text-shadow: 0 0 20px var(--gold), 0 5px 5px rgba(0,0,0,0.8); }
+        @keyframes floatTxt { 0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); } 25% { transform: translate(-50%, -90%) scale(1.4); } 100% { opacity: 0; transform: translate(-50%, -180%) scale(0.8); } }
+    </style>
+</head>
+<body>
+
+    <div class="aurora"></div>
+    
+    <div id="viewport">
+        <div id="canvas-container"></div>
+        <div id="vfx-layer"></div>
+
+        <div id="ui-layer">
+            
+            <div id="screen-lobby" class="screen solid-screen active">
+                <div class="lobby-title">
+                    <h1>THRE3 HERO</h1>
+                    <p>Absolute Masterpiece</p>
+                </div>
+                <button class="btn-core chewy" onclick="startGame()">📖 작전 개시</button>
+            </div>
+
+            <div id="screen-story" class="screen solid-screen">
+                <div class="nav-bar">
+                    <button class="btn-back glass chewy" onclick="showScreen('lobby')">↩ 사령실</button>
+                    <span style="font-family:'Cinzel'; font-weight:900; font-size:1.4rem; color:var(--gold);">SECTORS</span>
+                    <div style="width: 80px;"></div> </div>
+                <div class="map-scroller" id="story-nodes"></div>
+            </div>
+
+            <div id="screen-battle" class="screen" style="background:transparent; pointer-events:none;">
+                <div class="hud-header">
+                    <div class="score-box glass">
+                        <span style="font-size:0.8rem; color:#94a3b8; font-weight:900;">YOU</span>
+                        <h3 id="score-p">0</h3>
+                    </div>
+                    <div class="timer-hub">
+                        <div class="timer-ring glass" id="battle-timer">15</div>
+                        <div style="font-family:'Cinzel'; font-size:1rem; margin-top:5px; font-weight:bold; color:#fff;" id="round-txt">ROUND 1</div>
+                    </div>
+                    <div class="score-box glass">
+                        <span style="font-size:0.8rem; color:#94a3b8; font-weight:900;">OMEGA</span>
+                        <h3 id="score-e" style="color:var(--danger);">0</h3>
+                    </div>
+                </div>
+
+                <div class="hud-side">
+                    <button id="btn-cam" class="btn-side chewy" onclick="toggleCamera()">👀 시뮬레이션 관전</button>
+                </div>
+
+                <div class="hud-footer">
+                    <div class="phase-bar glass">
+                        <span id="phase-text" style="font-size:1.1rem; font-weight:900; color:var(--neon-blue);">영웅 전술 배치</span>
+                        <button id="btn-lock" class="chewy" style="padding:12px 24px; border-radius:14px; background:var(--gold); color:#000; border:none; font-weight:900; font-size:1rem; display:none; box-shadow: 0 5px 20px var(--gold-glow); pointer-events:auto;" onclick="lockPlacement()">배치 확정</button>
+                    </div>
+                    <div id="roster-deck" class="deck-scroller glass"></div>
+                </div>
+            </div>
+
+            <div id="spec-modal" class="glass">
+                <h2 id="spec-title" style="font-family:'Cinzel'; color:var(--gold); margin:0 0 8px 0; font-size:2.4rem; text-shadow: 0 0 15px var(--gold-glow);">HERO</h2>
+                <p id="spec-role" style="font-family:'Cinzel'; font-size:1rem; color:var(--neon-blue); font-weight:900; margin:0 0 12px 0;"></p>
+                <p id="spec-stat" style="font-size:1.1rem; color:#e2e8f0; font-weight:900;"></p>
+                <p id="spec-desc" style="font-size:0.95rem; color:#cbd5e0; border-top:1px solid var(--glass-border); padding-top:18px; line-height:1.6; text-align:left; font-weight: 700;"></p>
+                <button class="btn-core chewy" style="margin-top:25px; padding:15px; font-size:1.1rem; border-radius:16px; width:100%;" onclick="closeSpec()">닫기</button>
+            </div>
+
+            <div id="screen-result" class="screen solid-screen">
+                <div class="result-box glass">
+                    <h1 id="res-title" style="font-family:'Cinzel'; font-size:4.5rem; margin:0 0 15px 0; text-shadow: 0 0 30px var(--gold-glow);">VICTORY</h1>
+                    <p id="res-desc" style="color:#e2e8f0; font-size:1.2rem; margin-bottom:45px; font-weight:900; line-height: 1.5;">전술 시뮬레이션 매치 종료</p>
+                    <button class="btn-core chewy" style="margin:0;" onclick="returnToMap()">사령실 귀환</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // =========================================================================
+    // [1] 안정화된 데이터베이스
+    // =========================================================================
+    const DB_HEROES = [
+        { id: 'u1', name: '가디언', hp: 700, atk: 25, role: 'TANK', color: 0x94a3b8, glow: 0xffffff, icon: '🛡️', unlockLv: 0, skill: '[절대성벽] 50% 확률로 구체 방어막을 생성해 대미지를 흡수합니다.' },
+        { id: 'u2', name: '스나이퍼', hp: 160, atk: 95, role: 'DPS', color: 0xe11d48, glow: 0xff0055, icon: '🎯', unlockLv: 0, skill: '[집속레이저] 초고속 고출력 빔을 발사하여 상대에게 치명타를 투사합니다.' },
+        { id: 'u3', name: '클레릭', hp: 280, atk: 15, role: 'HEAL', color: 0x10b981, glow: 0x00ff88, icon: '✨', unlockLv: 0, skill: '[여신의 오라] 생명력이 가장 낮은 아군을 탐색해 강력한 치유를 부여합니다.' },
+        { id: 'u4', name: '어쌔신', hp: 250, atk: 75, role: 'ASSASSIN', color: 0x8b5cf6, glow: 0xbf55ec, icon: '🗡️', unlockLv: 0, skill: '[그림자 기습] 기동 속도를 올려 체력이 가장 낮은 적을 우선 기습 타격합니다.' },
+        { id: 'u5', name: '버서커', hp: 500, atk: 55, role: 'BRUISER', color: 0xf97316, glow: 0xff6600, icon: '🪓', unlockLv: 0, skill: '[혈기 폭주] 잃은 체력 비례 가해 대미지 계수를 폭발적으로 증가시킵니다.' },
+        { id: 'u6', name: '위자드', hp: 190, atk: 80, role: 'MAGE', color: 0x3b82f6, glow: 0x00d2ff, icon: '🔮', unlockLv: 0, skill: '[아스트랄 폭격] 마법 코어를 가속하여 무작위 대상에게 마법 피해를 배포합니다.' },
+        { id: 'u7', name: '크로노스', hp: 200, atk: 85, role: 'MAGE', color: 0xd4af37, glow: 0xffc400, icon: '⏳', unlockLv: 1, skill: '[시간역행] 탈락 위기 시, 1회에 한해 자신의 생명력을 50%로 복원합니다.' },
+        { id: 'u8', name: '드래곤', hp: 480, atk: 65, role: 'BRUISER', color: 0xb91c1c, glow: 0xff1111, icon: '🐉', unlockLv: 2, skill: '[멸성 브레스] 브레스를 발사하여 무작위 적 1체에게 추가 관통 피해를 입힙니다.' },
+        { id: 'u9', name: '프로스트', hp: 180, atk: 70, role: 'MAGE', color: 0x06b6d4, glow: 0x00ffff, icon: '❄️', unlockLv: 3, skill: '[절대영도] 타격한 적을 동결하여 다음 1턴 동안 강제 정지시킵니다.' },
+        { id: 'u10', name: '뱀파이어', hp: 260, atk: 75, role: 'ASSASSIN', color: 0x581c87, glow: 0xda70d6, icon: '🦇', unlockLv: 4, skill: '[영혼 흡혈] 가해한 타격 대미지의 50%를 자신의 생명력으로 흡수합니다.' },
+        { id: 'u11', name: '타이탄', hp: 850, atk: 35, role: 'TANK', color: 0x475569, glow: 0x94a3b8, icon: '🤖', unlockLv: 5, skill: '[철벽 장갑] 복합 장갑으로 코팅되어 모든 타격 피해량을 25% 경감합니다.' },
+        { id: 'u12', name: '솔라 마스터', hp: 220, atk: 90, role: 'HEAL', color: 0xeab308, glow: 0xffaa00, icon: '☀️', unlockLv: 6, skill: '[태양오라] 아군 치유 시, 대상의 파괴 공격 계수를 1턴 간 증폭시킵니다.' },
+        { id: 'u13', name: '이지스', hp: 990, atk: 20, role: 'TANK', color: 0x047857, glow: 0x00ffee, icon: '💠', unlockLv: 7, skill: '[궁극 매트릭스] 전투 개시 시 아군 전체에 방어막을 씌워 첫 피해를 반감시킵니다.' }
+    ];
+
+    const STAGE_DATA = [
+        { lv: 1, bot: ['u1','u2','u3'], unlock: 'u7' },
+        { lv: 2, bot: ['u4','u5','u1'], unlock: 'u8' },
+        { lv: 3, bot: ['u6','u2','u7'], unlock: 'u9' },
+        { lv: 4, bot: ['u8','u3','u5'], unlock: 'u10' },
+        { lv: 5, bot: ['u10','u9','u4'], unlock: 'u11' },
+        { lv: 6, bot: ['u11','u1','u12'], unlock: 'u12' },
+        { lv: 7, bot: ['u13','u12','u8'], unlock: 'u13' }
+    ];
+
+    // 글로벌 상태
+    let storyProgress = 0;
+    let activeLv = 1;
+    let phase = 'IDLE';
+    let pUnits = [], eUnits = [];
+    let pWins = 0, eWins = 0, round = 1;
+    let timer = 15.0;
+    let isCinematic = false;
+    let battleInterval = null;
+
+    // =========================================================================
+    // [2] 3D 엔진 코어 (절대 멈추지 않는 렌더링)
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x010308, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(54, window.innerWidth/window.innerHeight, 0.1, 1000);
+    // [버그 수정]: 피벗 없앰. 절대 좌표 유지.
+    camera.position.set(0, 22, 16);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    container.appendChild(renderer.domElement);
+
+    // 조명 세팅
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    let sun = new THREE.DirectionalLight(0xfff5e6, 1.4);
+    sun.position.set(12, 35, 12);
+    sun.castShadow = true;
+    scene.add(sun);
+    scene.add(new THREE.PointLight(0x00f3ff, 1.8, 40)).position.set(-5, 4, 6);
+    scene.add(new THREE.PointLight(0xc724b1, 1.8, 40)).position.set(5, 4, -6);
+
+    let boardTiles = [];
+    let anims = [];
+
+    // 우주 배경 입자
+    const starGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+    const starMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.6 });
+    for(let i=0; i<70; i++) {
+        let s = new THREE.Mesh(starGeo, starMat);
+        s.position.set((Math.random()-0.5)*35, Math.random()*20, (Math.random()-0.5)*35);
+        s.userData = { speed: Math.random()*0.04 + 0.02 };
+        scene.add(s);
+        anims.push({ obj: s, act: 'fall' });
+    }
+
+    // 보드 판 생성 (치우침 수정: 0,0,0 중앙 고정 배치)
+    const tGeo = new THREE.BoxGeometry(2.15, 0.32, 2.15);
+    const eGeo = new THREE.EdgesGeometry(tGeo);
+    const matP = new THREE.MeshPhysicalMaterial({ color: 0x0c1928, metalness: 0.9, roughness: 0.1, clearcoat: 1.0 });
+    const matE = new THREE.MeshPhysicalMaterial({ color: 0x280c18, metalness: 0.9, roughness: 0.1, clearcoat: 1.0 });
+    const glowGeo = new THREE.PlaneGeometry(2.0, 2.0);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffc107, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+
+    function initBoard() {
+        boardTiles.forEach(t => scene.remove(t)); boardTiles = [];
+        const createTile = (c, r, isP) => {
+            let m = new THREE.Mesh(tGeo, isP ? matP : matE);
+            m.position.set(c*2.4 - 2.4, 0.16, isP ? (r*2.4 + 1.2) : -(r*2.4 + 1.2));
+            m.receiveShadow = true;
+            m.add(new THREE.LineSegments(eGeo, new THREE.LineBasicMaterial({ color: isP ? 0x00f3ff : 0xff0055, transparent: true, opacity: 0.7 })));
+            
+            let ind = new THREE.Mesh(glowGeo, glowMat.clone());
+            ind.rotation.x = -Math.PI/2; ind.position.y = 0.17;
+            m.add(ind);
+            m.userData = { isPlayerArea: isP, occupied: false, indicator: ind };
+            scene.add(m);
+            boardTiles.push(m);
+        };
+        for(let r=0; r<3; r++) for(let c=0; c<3; c++) createTile(c, r, true);
+        for(let r=0; r<3; r++) for(let c=0; c<3; c++) createTile(c, r, false);
+    }
+    initBoard();
+
+    // 영웅 생성 공장
+    function buildHero(hero) {
+        const group = new THREE.Group();
+        const bMat = new THREE.MeshPhysicalMaterial({ color: hero.color, metalness: 0.7, roughness: 0.2, clearcoat: 1.0 });
+        const gMat = new THREE.MeshStandardMaterial({ color: hero.glow, emissive: hero.glow, emissiveIntensity: 3.0 });
+
+        let ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.05, 8, 24), gMat);
+        ring.rotation.x = Math.PI/2; ring.position.y = 0.1;
+        group.add(ring); anims.push({ obj: ring, act: 'spin', val: 0.05 });
+
+        if(hero.role === 'TANK') {
+            group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 1.4, 8), bMat).translateY(0.8));
+            let sfx = new THREE.Mesh(new THREE.SphereGeometry(1.45, 24, 24), new THREE.MeshPhysicalMaterial({ transmission: 0.95, opacity: 1, transparent: true, color: hero.glow, roughness: 0.1 }));
+            sfx.position.y = 0.8; sfx.visible = false;
+            group.add(sfx); group.userData.shieldFX = sfx;
+        } else if(hero.role === 'DPS') {
+            group.add(new THREE.Mesh(new THREE.ConeGeometry(0.48, 1.8, 6), bMat).translateY(1.0));
+            let gun = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.6, 8), gMat);
+            gun.position.set(0, 1.3, 0.4); gun.rotation.x = Math.PI/2; group.add(gun);
+        } else if(hero.role === 'HEAL') {
+            group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.6, 1.5, 12), bMat).translateY(0.8));
+            let halo = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 8, 24), gMat);
+            halo.position.y = 2.1; halo.rotation.x = Math.PI/2; group.add(halo);
+            anims.push({ obj: halo, act: 'bob', baseY: 2.1, speed: 4, amp: 0.1 });
+        } else if(hero.role === 'MAGE') {
+            group.add(new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 24), bMat).translateY(1.2));
+            let orbs = new THREE.Group(); orbs.position.y = 1.2;
+            for(let i=0; i<3; i++) {
+                let o = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 0), gMat);
+                o.position.set(Math.cos(i*2.09)*1.2, 0, Math.sin(i*2.09)*1.2); orbs.add(o);
+            }
+            group.add(orbs); anims.push({ obj: orbs, act: 'spin', val: -0.06 });
+        } else { 
+            group.add(new THREE.Mesh(new THREE.BoxGeometry(0.76, 1.2, 0.76), bMat).translateY(0.7));
+            let wp = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1.0, 4), gMat);
+            wp.position.set(0.6, 1.0, 0.3); wp.rotation.x = Math.PI/3; group.add(wp);
+        }
+
+        const hpPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.12), new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide }));
+        hpPlane.position.y = 2.5; group.add(hpPlane);
+
+        group.traverse(m => { if(m.isMesh) { m.castShadow = true; m.receiveShadow = true; }});
+        anims.push({ obj: group, act: 'breathe', baseY: 0.16, speed: 2, amp: 0.05 });
+
+        group.updateMatrixWorld(true);
+        return { group: group, hpMesh: hpPlane };
+    }
+
+    // --- 드래그 앤 드롭 시스템 (안정화) ---
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let dragObj = null; let dragOrigin = null;
+    let dragPlane = new THREE.Plane(new THREE.Vector3(0,1,0), -0.16);
+
+    window.addEventListener('pointerdown', e => {
+        if(phase !== 'PLACEMENT') return;
+        pointer.x = (e.clientX/window.innerWidth)*2-1; pointer.y = -(e.clientY/window.innerHeight)*2+1;
+        raycaster.setFromCamera(pointer, camera);
+        
+        let hits = raycaster.intersectObjects(pUnits.map(u=>u.mesh), true);
+        if(hits.length > 0) {
+            let n = hits[0].object; while(n.parent && n.parent.type!=='Scene') n = n.parent;
+            // [버그 차단]: removeAll 대신 개별 애니메이션 덮어쓰기
+            new TWEEN.Tween(n.scale).to({x:0.8, y:1.3, z:0.8}, 160).start();
+            new TWEEN.Tween(n.position).to({y:1.6}, 160).start();
+            dragObj = n; dragOrigin = n.userData.core.tile;
+        }
+    });
+
+    window.addEventListener('pointermove', e => {
+        if(!dragObj || phase !== 'PLACEMENT') return;
+        pointer.x = (e.clientX/window.innerWidth)*2-1; pointer.y = -(e.clientY/window.innerHeight)*2+1;
+        raycaster.setFromCamera(pointer, camera);
+        let hit = new THREE.Vector3(); raycaster.ray.intersectPlane(dragPlane, hit);
+        
+        dragObj.position.x += (hit.x - dragObj.position.x)*0.45;
+        dragObj.position.z += (hit.z - dragObj.position.z)*0.45;
+
+        let closest = null, minD = Infinity;
+        boardTiles.filter(t=>t.userData.isPlayerArea).forEach(t => {
+            t.userData.indicator.material.opacity = 0;
+            let d = dragObj.position.distanceTo(t.position);
+            if(d < minD) { minD = d; closest = t; }
+        });
+        if(closest && minD < 2.5) closest.userData.indicator.material.opacity = 0.5 + Math.sin(Date.now()*0.015)*0.2;
+    });
+
+    window.addEventListener('pointerup', () => {
+        if(!dragObj) return;
+        let n = dragObj; let core = n.userData.core;
+        boardTiles.forEach(t => t.userData.indicator.material.opacity = 0);
+
+        let closest = null, minD = Infinity;
+        boardTiles.filter(t=>t.userData.isPlayerArea).forEach(t => {
+            let d = n.position.distanceTo(t.position);
+            if(d < minD) { minD = d; closest = t; }
+        });
+
+        if(minD > 2.6) { // 회수 (GPU 클리어)
+            clearMemory(n); core.tile.userData.occupied = false;
+            pUnits = pUnits.filter(u=>u!==core); renderDeck();
+        } else {
+            if(!closest.userData.occupied || closest === dragOrigin) {
+                dragOrigin.userData.occupied = false; closest.userData.occupied = true; core.tile = closest;
+            } else {
+                let other = pUnits.find(u=>u.tile===closest);
+                other.tile = dragOrigin; dragOrigin.userData.occupied = true;
+                new TWEEN.Tween(other.mesh.position).to({x:other.tile.position.x, z:other.tile.position.z}, 250).easing(TWEEN.Easing.Back.Out).start();
+                core.tile = closest;
+            }
+            new TWEEN.Tween(n.position).to({x:core.tile.position.x, y:0.16, z:core.tile.position.z}, 350).easing(TWEEN.Easing.Bounce.Out).start();
+            new TWEEN.Tween(n.scale).to({x:1.2, y:0.8, z:1.2}, 120).onComplete(()=>new TWEEN.Tween(n.scale).to({x:1,y:1,z:1}, 200).easing(TWEEN.Easing.Elastic.Out).start()).start();
+        }
+        dragObj = null; checkReady();
+    });
+
+    function clearMemory(obj) {
+        scene.remove(obj);
+        obj.traverse(c => {
+            if(c.isMesh) {
+                if(c.geometry) c.geometry.dispose();
+                if(c.material) { if(Array.isArray(c.material)) c.material.forEach(m=>m.dispose()); else c.material.dispose(); }
+            }
+        });
+        anims = anims.filter(a => a.obj !== obj && !obj.getObjectById(a.obj.id));
+    }
+
+    // 전투 렌더링 파이프라인
+    function renderLoop(time) {
+        TWEEN.update(time);
+        
+        // 카메라는 항상 중앙을 바라보게 고정 (시점 이탈 버그 원천 봉쇄)
+        camera.lookAt(0, 0, 0);
+
+        let s = time * 0.001;
+        anims.forEach(a => {
+            if(!a.obj || !a.obj.position) return;
+            if(a.act === 'fall') { a.obj.position.y -= a.obj.userData.speed; if(a.obj.position.y < -4) a.obj.position.y = 15; }
+            if(a.act === 'spin') a.obj.rotation.y += a.val;
+            if(a.act === 'bob') a.obj.position.y = a.baseY + Math.sin(s*a.speed)*a.amp;
+            if(a.act === 'breathe') a.obj.position.y = a.baseY + Math.sin(s*a.speed + a.obj.position.x)*a.amp;
+        });
+
+        [...pUnits, ...eUnits].forEach(u => {
+            if(u.hpMesh && u.currentHp > 0) u.hpMesh.lookAt(camera.position);
+        });
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    // =========================================================================
+    // [3] UI 컨트롤 타워
+    // =========================================================================
+    function showScreen(id) {
+        ['intro', 'lobby', 'story', 'battle', 'result'].forEach(s => {
+            document.getElementById('screen-' + s).classList.remove('active');
+        });
+        document.getElementById(`screen-${id}`).classList.add('active');
+
+        // 로비/맵으로 돌아올 때 카메라 중앙 쿼터뷰 고정
+        if(id === 'lobby' || id === 'story') {
+            isCinematic = false;
+            new TWEEN.Tween(camera.position).to({x:0, y:22, z:16}, 600).easing(TWEEN.Easing.Cubic.Out).start();
+        }
+    }
+
+    function startGame() {
+        showScreen('story');
+        renderMap();
+    }
+
+    function renderMap() {
+        const box = document.getElementById('story-nodes');
+        box.innerHTML = '';
+        STAGE_DATA.slice().reverse().forEach((s, i) => {
+            let cleared = s.lv <= storyProgress;
+            let current = s.lv === storyProgress + 1;
+            let locked = s.lv > storyProgress + 1;
+
+            let wrap = document.createElement('div');
+            wrap.className = 'node-wrapper';
+            
+            let n = document.createElement('div');
+            n.className = `map-node jelly-btn ${cleared?'cleared':''} ${current?'target':''} ${locked?'locked':''}`;
+            n.innerHTML = `<span style="font-family:'Cinzel'; font-size:1.5rem; font-weight:900; color:white;">${s.lv}</span>`;
+            if(i < STAGE_DATA.length - 1) n.innerHTML += `<div class="node-line ${cleared?'cleared':''}"></div>`;
+
+            if(!locked) n.onclick = () => selectStage(s);
+            wrap.appendChild(n); box.appendChild(wrap);
+            if(current) selectStage(s);
+        });
+    }
+
+    function selectStage(s) {
+        document.getElementById('reward-title').innerText = `🏆 섹터 ${s.lv} : ${s.name}`;
+        let h = DB_HEROES.find(u=>u.id === s.rewardId);
+        document.getElementById('reward-desc').innerText = `보상 데이터: [${h.name}] \n ${h.skill}`;
+        
+        let startBtn = document.getElementById('btn-start-battle');
+        startBtn.style.display = 'block';
+        startBtn.onclick = () => {
+            showScreen('battle');
+            initMatch(s.lv);
+        };
+    }
+
+    function openSpec(h) {
+        document.getElementById('spec-title').innerText = h.name;
+        document.getElementById('spec-role').innerText = `CLASS : ${h.role}`;
+        document.getElementById('spec-stat').innerHTML = `내구강도: <span style="color:var(--safe)">${h.hp}</span> &nbsp;|&nbsp; 파괴화력: <span style="color:var(--danger)">${h.atk}</span>`;
+        document.getElementById('spec-desc').innerText = h.skill;
+        const m = document.getElementById('spec-modal'); m.style.display = 'block';
+        setTimeout(() => { m.style.opacity = '1'; m.style.transform = 'translate(-50%, -50%) scale(1)'; }, 10);
+    }
+    function closeSpec() {
+        const m = document.getElementById('spec-modal');
+        m.style.opacity = '0'; m.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        setTimeout(() => m.style.display = 'none', 250);
+    }
+
+    // =========================================================================
+    // [4] 핵심 전투 매니저
+    // =========================================================================
+    function initMatch(lv) {
+        activeLv = lv; pWins = 0; eWins = 0; round = 1;
+        startPlacement();
+    }
+
+    function startPlacement() {
+        phase = 'PLACEMENT'; timer = 15.0;
+        pUnits.forEach(u=>clearMemory(u.mesh)); pUnits=[];
+        eUnits.forEach(u=>clearMemory(u.mesh)); eUnits=[];
+        boardTiles.forEach(t=> { t.userData.occupied=false; t.userData.indicator.material.opacity=0; });
+
+        document.getElementById('score-p').innerText = pWins;
+        document.getElementById('score-e').innerText = eWins;
+        let dots = document.getElementById('bo5-dots').children;
+        for(let i=0;i<3;i++) dots[i].className = 'bo5-dot' + (i<pWins ? ' win-p':'') + (i<eWins ? ' win-e':'');
+
+        document.getElementById('phase-text').innerText = `영웅 진형 구축 (ROUND ${round})`;
+        document.getElementById('btn-placement-lock').style.display = 'none';
+        document.getElementById('btn-view-angle').style.display = 'none'; // 관전 옵션 숨김
+        document.getElementById('roster-deck').style.pointerEvents = 'auto';
+        document.getElementById('roster-deck').style.opacity = '1';
+
+        // 시네마틱 해제 및 카메라 고정
+        isCinematic = false;
+        new TWEEN.Tween(camera.position).to({x:0, y:22, z:16}, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+        
+        renderDeck();
+    }
+
+    function renderDeck() {
+        const scroll = document.getElementById('roster-deck');
+        scroll.innerHTML = '';
+        DB_HEROES.forEach(h => {
+            let locked = h.unlockLv > storyProgress;
+            let card = document.createElement('div');
+            card.className = `deck-card jelly-btn ${locked ? 'locked' : ''}`;
+            card.style.borderTop = `3px solid #${h.color.toString(16)}`;
+            
+            // 정보 버튼 분리
+            let infoBtn = !locked ? `<div class="info-btn" onclick="event.stopPropagation(); openSpec(${JSON.stringify(h).replace(/"/g, '&quot;')})">i</div>` : '';
+            card.innerHTML = `${infoBtn}<div class="emoji">${h.icon}</div><span class="name">${h.name}</span>`;
+
+            if(!locked) {
+                card.onclick = () => {
+                    if(phase !== 'PLACEMENT' || pUnits.length >= 3) return;
+                    let fTile = boardTiles.find(t=>t.userData.isPlayerArea && !t.userData.occupied);
+                    if(fTile) {
+                        fTile.userData.occupied = true;
+                        let pack = buildHero(h); pack.group.position.copy(fTile.position);
+                        let core = {...h, maxHp:h.hp, currentHp:h.hp, mesh:pack.group, hpMesh:pack.hpMesh, tile:fTile, frozen:0, atkBuff:false, reviveUsed:false };
+                        pack.group.userData = { core: core };
+                        scene.add(pack.group); pUnits.push(core);
+                        
+                        pack.group.position.y = 8;
+                        new TWEEN.Tween(pack.group.position).to({y:0.16}, 400).easing(TWEEN.Easing.Bounce.Out).start();
+                        evalReadyBtn();
+                    }
+                };
+            }
+            scroll.appendChild(card);
+        });
+        evalReadyBtn();
+    }
+
+    function evalReadyBtn() { document.getElementById('btn-placement-lock').style.display = pUnits.length === 3 ? 'block' : 'none'; }
+
+    function lockPlacement() {
+        phase = 'COMBAT';
+        document.getElementById('btn-placement-lock').style.display = 'none';
+        document.getElementById('btn-view-angle').style.display = 'block'; // 시네마틱 관전 옵션 노출
+        document.getElementById('phase-text').innerText = '실시간 전투 연산 중';
+        document.getElementById('roster-deck').style.pointerEvents = 'none';
+        document.getElementById('roster-deck').style.opacity = '0.2';
+        
+        let pAegis = pUnits.find(u=>u.id==='u13');
+        if(pAegis) { pUnits.forEach(u=> u.aegisShield = true); popText(pAegis.mesh.position, "MATRIX!", 'skill'); }
+
+        let eTiles = boardTiles.filter(t=>!t.userData.isPlayerArea);
+        let pool = STAGE_DATA.find(s=>s.lv===activeLv).botDeck;
+
+        for(let i=0; i<3; i++) {
+            let data = DB_HEROES.find(u=>u.id === pool[Math.floor(Math.random()*pool.length)]);
+            let tile = eTiles.splice(Math.floor(Math.random()*eTiles.length), 1)[0];
+            tile.userData.occupied = true;
+            let pack = buildHero(data); pack.group.position.copy(tile.position); pack.group.rotation.y = Math.PI;
+            let core = {...data, maxHp:data.hp, currentHp:data.hp, mesh:pack.group, hpMesh:pack.hpMesh, tile:tile, frozen:0, atkBuff:false, reviveUsed:false };
+            pack.group.userData = { core: core }; scene.add(pack.group); eUnits.push(core);
+            pack.group.position.y = 8;
+            new TWEEN.Tween(pack.group.position).to({y:0.16}, 500).easing(TWEEN.Easing.Back.Out).delay(i*100).start();
+        }
+        let eAegis = eUnits.find(u=>u.id==='u13'); if(eAegis) eUnits.forEach(u=> u.aegisShield = true);
+
+        setTimeout(()=>battleTick(), 1000);
+    }
+
+    function battleTick() {
+        if(phase !== 'COMBAT') return;
+        let aliveP = pUnits.filter(u=>u.currentHp>0);
+        let aliveE = eUnits.filter(u=>u.currentHp>0);
+        if(aliveP.length === 0 || aliveE.length === 0) return endRound(aliveP.length > 0);
+
+        aliveP.forEach(p => {
+            if(p.frozen > 0) { p.frozen--; popText(p.mesh.position, "FROZEN", 'skill'); return; }
+            if(p.role==='HEAL') {
+                let ally = aliveP.sort((a,b)=>(a.currentHp/a.maxHp)-(b.currentHp/b.maxHp))[0]; executeAction(p, ally, true);
+            } else {
+                let target = aliveE[Math.floor(Math.random()*aliveE.length)];
+                if(p.id === 'u4' || p.id === 'u10') { target = aliveE.sort((a,b)=>a.currentHp - b.currentHp)[0]; }
+                executeAction(p, target, false);
+            }
+        });
+
+        setTimeout(() => {
+            let cP = pUnits.filter(u=>u.currentHp>0), cE = eUnits.filter(u=>u.currentHp>0);
+            if(cP.length===0 || cE.length===0) return;
+            cE.forEach(e => {
+                if(e.frozen > 0) { e.frozen--; return; }
+                if(e.role==='HEAL') {
+                    let ally = cE.sort((a,b)=>(a.currentHp/a.maxHp)-(b.currentHp/b.maxHp))[0]; executeAction(e, ally, true);
+                } else {
+                    let target = cP[Math.floor(Math.random()*cP.length)];
+                    if(e.id === 'u4' || e.id === 'u10') target = cP.sort((a,b)=>a.currentHp - b.currentHp)[0];
+                    executeAction(e, target, false);
+                }
+            });
+        }, 700);
+
+        setTimeout(()=>battleTick(), 1800);
+    }
+
+    function executeAction(attacker, target, isHeal) {
+        let oPos = attacker.mesh.position.clone();
+        new TWEEN.Tween(attacker.mesh.position).to({x:oPos.x+(target.mesh.position.x-oPos.x)*0.25, z:oPos.z+(target.mesh.position.z-oPos.z)*0.25}, 200).yoyo(true).repeat(1).start();
+
+        setTimeout(() => {
+            let sP = attacker.mesh.position.clone().setY(1.2), eP = target.mesh.position.clone().setY(1.2);
+            if(isCinematic) new TWEEN.Tween(camera.position).to(sP.clone().add(new THREE.Vector3(0,4,4)), 200).easing(TWEEN.Easing.Quadratic.Out).start();
+
+            const resolve = () => {
+                // 이펙트
+                let mat = new THREE.MeshBasicMaterial({ color: attacker.glow });
+                let geo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+                for(let i=0; i<10; i++) {
+                    let p = new THREE.Mesh(geo, mat); p.position.copy(eP); scene.add(p);
+                    let t = Math.random()*Math.PI*2, f = Math.random()*1.8 + 0.6;
+                    new TWEEN.Tween(p.position).to({ x: p.position.x+Math.cos(t)*f, y: p.position.y+Math.random()*1.8, z: p.position.z+Math.sin(t)*f }, 380).onComplete(()=>{ scene.remove(p); geo.dispose(); mat.dispose(); }).start();
+                }
+
+                // 대미지 연산
+                let val = attacker.atk + Math.floor(Math.random()*15);
+                if(attacker.atkBuff) { val = Math.floor(val * 1.3); attacker.atkBuff = false; }
+                if(attacker.id === 'u5') { let loss = 1 - (attacker.currentHp / attacker.maxHp); val = Math.floor(val * (1 + (loss * 0.6))); }
+
+                if(isHeal) {
+                    target.currentHp = Math.min(target.maxHp, target.currentHp + val);
+                    popText(target.mesh.position, val, 'heal');
+                    if(attacker.id === 'u12') target.atkBuff = true; 
+                } else {
+                    if(target.id === 'u1' && Math.random() > 0.5) {
+                        val = 0; target.mesh.userData.shieldFX.visible = true; setTimeout(()=>target.mesh.userData.shieldFX.visible=false, 600); popText(target.mesh.position, "BLOCKED", 'skill');
+                    } else if(target.aegisShield) {
+                        val = Math.floor(val * 0.5); target.aegisShield = false; popText(target.mesh.position, "AEGIS", 'skill');
+                    } else if(target.id === 'u11') {
+                        val = Math.floor(val * 0.75);
+                    }
+
+                    target.currentHp -= val;
+                    if(val > 0) popText(target.mesh.position, val, 'dmg');
+
+                    if(attacker.id === 'u10' && val > 0) {
+                        let hVal = Math.floor(val * 0.5); attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + hVal); popText(attacker.mesh.position, hVal, 'heal');
+                    }
+                    if(attacker.id === 'u9' && val > 0) { target.frozen = 1; popText(target.mesh.position, "FREEZE!", 'skill'); }
+                    if(target.currentHp <= 0 && target.id === 'u7' && !target.reviveUsed) {
+                        target.currentHp = Math.floor(target.maxHp * 0.5); target.reviveUsed = true; popText(target.mesh.position, "REVERSE!", 'skill');
+                    }
+                }
+
+                let r = Math.max(0, target.currentHp/target.maxHp);
+                target.hpMesh.scale.x = r; target.hpMesh.material.color.setHex(r>0.4 ? 0x10b981 : 0xf43f5e);
+
+                if(target.currentHp <= 0) {
+                    new TWEEN.Tween(target.mesh.rotation).to({x:Math.PI/2}, 400).easing(TWEEN.Easing.Bounce.Out).start();
+                    target.mesh.position.y = -0.12; target.hpMesh.visible = false; target.tile.userData.occupied = false;
+                }
+
+                if(isCinematic) new TWEEN.Tween(camera.position).to({x:0, y:22, z:16}, 300).start();
+            };
+
+            if(attacker.role === 'DPS' || attacker.id === 'u12') { 
+                let d = sP.distanceTo(eP);
+                let b = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, d, 8).translate(0, d/2, 0), new THREE.MeshBasicMaterial({ color: attacker.glow, transparent:true, opacity:0.9 }));
+                b.position.copy(sP); b.lookAt(eP); b.rotateX(Math.PI/2); scene.add(b);
+                new TWEEN.Tween(b.scale).to({x:4, z:4}, 120).yoyo(true).repeat(1).onComplete(()=>{ scene.remove(b); resolve(); }).start();
+            } else {
+                let b = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshBasicMaterial({ color: attacker.glow }));
+                b.position.copy(sP); scene.add(b);
+                new TWEEN.Tween(b.position).to({x:eP.x, y:eP.y, z:eP.z}, 250).easing(TWEEN.Easing.Quadratic.In).onComplete(()=>{ scene.remove(b); resolve(); }).start();
+            }
+        }, 200);
+    }
+
+    function popText(pos, txt, type) {
+        let v = pos.clone().setY(2.6).project(camera);
+        let el = document.createElement('div');
+        el.className = type === 'heal' ? 'fx-text fx-heal' : type === 'skill' ? 'fx-text fx-skill' : 'fx-text';
+        el.innerText = type === 'heal' ? `+${txt}` : type === 'skill' ? txt : `-${txt}`;
+        el.style.left = `${(v.x*.5+.5)*window.innerWidth}px`; el.style.top = `${(-(v.y*.5)+.5)*window.innerHeight}px`;
+        document.getElementById('vfx-layer').appendChild(el);
+        setTimeout(() => el.remove(), 850);
+    }
+
+    function endRound(isWin) {
+        phase = 'RESULT';
+        if(isWin) pWins++; else eWins++;
+        document.getElementById('score-p').innerText = pWins; document.getElementById('score-e').innerText = eWins;
+        let dots = document.getElementById('bo5-dots').children;
+        for(let i=0;i<3;i++) dots[i].className = 'bo5-dot' + (i<pWins ? ' win-p':'') + (i<eWins ? ' win-e':'');
+
+        setTimeout(() => {
+            if(pWins === 3 || eWins === 3) {
+                let title = document.getElementById('result-title');
+                let desc = document.getElementById('result-desc');
+                if(pWins === 3) { 
+                    title.innerText = "VICTORY"; title.style.color = "var(--gold)"; 
+                    if(activeLv > storyProgress) storyProgress = activeLv;
+                    desc.innerText = `섹터 점령 완료! 데이터가 저장되었습니다.`;
+                } else { 
+                    title.innerText = "DEFEAT"; title.style.color = "var(--danger)"; 
+                    desc.innerText = "전술 연산이 파괴되었습니다.";
+                }
+                showScreen('result');
+            } else { round++; startPlacement(); }
+        }, 1800);
+    }
+
+    // 카메라 시점 제어
+    let camPresets = [{x:0,y:22,z:16}, {x:0,y:30,z:2}, {x:-16,y:18,z:12}, {x:16,y:18,z:12}];
+    let camIdx = 0;
+    function cycleCameraView() {
+        camIdx = (camIdx + 1) % camPresets.length;
+        let p = camPresets[camIdx];
+        new TWEEN.Tween(camera.position).to({x:p.x, y:p.y, z:p.z}, 600).easing(TWEEN.Easing.Cubic.Out).start();
+    }
+
+    // =========================================================================
+    // [5] BOOTSTRAP INIT
+    // =========================================================================
+    window.onload = () => {
+        setTimeout(() => {
+            const intro = document.getElementById('screen-intro');
+            if(intro) {
+                intro.style.opacity = '0'; intro.style.transition = 'opacity 0.6s ease';
+                setTimeout(() => { showScreen('lobby'); }, 600);
+            }
+        }, 2500);
+    };
+
+    // 15초 타이머 글로벌 루프
+    setInterval(() => {
+        if(phase !== 'PLACEMENT') return;
+        timer -= 0.1;
+        let c = document.getElementById('battle-timer');
+        if(c) {
+            if(timer <= 0) { timer = 0; c.innerText = "⚔️"; lockPlacement(); } 
+            else { c.innerText = Math.max(0, timer).toFixed(0); }
+        }
+    }, 100);
+
+</script>
+</body>
+</html>
