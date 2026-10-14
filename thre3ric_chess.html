@@ -1,0 +1,3673 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>THRE3RIC CHESS — 3D Tactical Auto-Battler</title>
+  <style>
+    :root {
+      --glass: rgba(18, 25, 44, 0.62);
+      --glass-heavy: rgba(10, 14, 26, 0.92);
+      --border: rgba(255, 255, 255, 0.22);
+      --spec: rgba(255, 255, 255, 0.45);
+      --blue: #0a84ff;
+      --cyan: #5ac8fa;
+      --gold: #ffd60a;
+      --green: #30d158;
+      --red: #ff453a;
+      --orange: #ff9f0a;
+      --purple: #bf5af2;
+      --text: #ffffff;
+      --sub: rgba(235, 235, 245, 0.72);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Pretendard', sans-serif;
+      letter-spacing: -0.015em;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: linear-gradient(180deg, #0d2238 0%, #1a4369 52%, #091526 100%);
+      color: var(--text);
+      transition: background 1s ease, filter 0.15s ease;
+    }
+    body.weather-DAY { background: linear-gradient(180deg, #0f2942 0%, #1d4e78 52%, #0c1b2e 100%); }
+    body.weather-SUNSET { background: linear-gradient(180deg, #2b1331 0%, #7c2d42 48%, #1f1124 100%); }
+    body.weather-NIGHT { background: linear-gradient(180deg, #040814 0%, #0d1b38 50%, #050811 100%); }
+
+    /* 처형 피니셔 흑백 반전 임팩트 플래시 */
+    body.finisher-flash {
+      filter: invert(0.92) contrast(1.65) saturate(0.2);
+    }
+
+    #canvas-container { position: fixed; inset: 0; z-index: 1; }
+    #overlay-layer { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+
+    /* ================= 0. THRE3RIC STUDIO 메탈릭 블루 인트로 ================= */
+    #intro-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      background: radial-gradient(circle at 50% 50%, #07142e 0%, #02050d 70%, #000 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 0.75s ease, transform 0.75s ease;
+    }
+    #intro-screen.fade-out { opacity: 0; transform: scale(1.08); pointer-events: none; }
+    .intro-logo-wrap { position: relative; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+    .intro-blue-backlight {
+      position: absolute;
+      width: 340px;
+      height: 150px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(10, 132, 255, 0.88) 0%, rgba(90, 200, 250, 0.4) 48%, transparent 75%);
+      filter: blur(36px);
+      animation: backlightPulse 2.4s ease-in-out infinite alternate;
+    }
+    .intro-metallic-title {
+      position: relative;
+      z-index: 2;
+      font-size: clamp(36px, 9vw, 54px);
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      background: linear-gradient(180deg, #fff 0%, #e2e8f0 28%, #94a3b8 48%, #1e293b 52%, #bae6fd 82%, #fff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 24px rgba(10, 132, 255, 0.8));
+    }
+    .intro-metallic-sub {
+      position: relative;
+      z-index: 2;
+      margin-top: 8px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.65em;
+      color: #bae6fd;
+      text-shadow: 0 0 14px rgba(90, 200, 250, 0.9);
+    }
+    .intro-blue-ring {
+      position: absolute;
+      width: 250px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #5ac8fa, #fff, #0a84ff, transparent);
+      box-shadow: 0 0 24px #0a84ff;
+      bottom: 24px;
+    }
+    @keyframes backlightPulse { 0% { transform: scale(0.85); opacity: 0.6; } 100% { transform: scale(1.22); opacity: 1; } }
+
+    /* ================= Apple visionOS Glass 공통 ================= */
+    .vision-glass {
+      background: var(--glass);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45), inset 0 1px 0.5px var(--spec);
+      border-radius: 24px;
+    }
+    .vision-pill {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 13px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .vision-pill:active:not(:disabled) { transform: scale(0.94); }
+    .vision-pill.primary {
+      background: linear-gradient(135deg, rgba(10, 132, 255, 0.9), rgba(90, 200, 250, 0.8));
+      border-color: rgba(255, 255, 255, 0.5);
+      box-shadow: 0 8px 22px rgba(10, 132, 255, 0.4);
+    }
+    .vision-pill.gold {
+      background: linear-gradient(135deg, rgba(255, 214, 10, 0.35), rgba(255, 159, 10, 0.45));
+      border-color: rgba(255, 214, 10, 0.75);
+      color: #fff3b0;
+    }
+
+    /* 차원 워프 & 레터박스 */
+    #warp-tunnel {
+      position: fixed;
+      inset: 0;
+      z-index: 28;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 15%, rgba(90, 200, 250, 0.4) 60%, rgba(10, 132, 255, 0.88) 100%);
+      transition: opacity 0.28s ease;
+    }
+    #warp-tunnel.active { opacity: 1; }
+
+    #cinematic-bars {
+      position: fixed;
+      inset: 0;
+      z-index: 22;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 0;
+      transition: opacity 0.22s ease;
+      box-shadow: inset 0 0 80px rgba(255, 214, 10, 0.4);
+    }
+    #cinematic-bars.active { opacity: 1; }
+    .letterbox {
+      width: 100%;
+      height: 0px;
+      background: rgba(4, 7, 15, 0.92);
+      transition: height 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #cinematic-bars.active .letterbox { height: 52px; }
+    .cinematic-caption { font-size: 12.5px; font-weight: 900; letter-spacing: 1.2px; color: var(--gold); }
+
+    /* ================= 1. 메인 화면 ================= */
+    #title-screen {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      z-index: 30;
+      padding: env(safe-area-inset-top, 12px) 14px env(safe-area-inset-bottom, 14px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      transition: opacity 0.4s ease, transform 0.45s ease;
+    }
+    #title-screen.hidden { opacity: 0; transform: translateX(-50%) scale(1.1); pointer-events: none !important; }
+    #title-screen > * { pointer-events: auto; }
+    #title-screen.hidden > * { pointer-events: none; }
+
+    .profile-widget { padding: 12px 15px; display: flex; flex-direction: column; gap: 9px; }
+    .profile-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .profile-left { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .avatar-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+      border: 2px solid rgba(255, 255, 255, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 900;
+      position: relative;
+    }
+    .lv-badge {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      background: var(--gold);
+      color: #000;
+      font-size: 8.5px;
+      font-weight: 900;
+      padding: 1px 5px;
+      border-radius: 999px;
+    }
+    .profile-stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 7px 10px;
+      border-radius: 14px;
+    }
+    .p-stat { display: flex; flex-direction: column; align-items: center; }
+    .p-stat-label { font-size: 9.5px; color: var(--sub); }
+    .p-stat-val { font-size: 12px; font-weight: 800; margin-top: 1px; }
+
+    /* 중앙 최애 영웅 & 스킨 퀵배지 */
+    .fav-hero-floating {
+      align-self: center;
+      margin-top: auto;
+      margin-bottom: 10px;
+      padding: 7px 15px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .title-bottom-dock { padding: 15px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .brand-logo {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, #fff 0%, #bae6fd 55%, #c7d2fe 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .news-pill-bar {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      padding: 9px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .warp-btn { width: 100%; padding: 14px; border-radius: 18px; font-size: 15px; font-weight: 900; }
+    .title-nav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+    /* ================= 2. 3D 영웅 도감 & 네온 스킨 스튜디오 ================= */
+    #codex-screen {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      z-index: 35;
+      padding: env(safe-area-inset-top, 12px) 14px env(safe-area-inset-bottom, 14px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.32s ease;
+    }
+    #codex-screen.visible { opacity: 1; }
+    #codex-screen.visible > * { pointer-events: auto; }
+
+    .codex-top-bar { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+    .codex-stage-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+      margin: auto 0;
+      pointer-events: none;
+    }
+    .arrow-circle { pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; font-size: 17px; font-weight: 900; }
+    .rotate-hint {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--sub);
+      background: rgba(0, 0, 0, 0.42);
+      padding: 5px 12px;
+      border-radius: 999px;
+    }
+
+    .codex-info-sheet {
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 56dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hero-carousel-pills, .skin-selector-row {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .h-pill {
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--sub);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .h-pill.active { background: var(--blue); border-color: #fff; color: #fff; }
+    .skin-chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .skin-chip.active { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 10px rgba(255, 214, 10, 0.35); }
+    .codex-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .c-stat-box { background: rgba(255, 255, 255, 0.06); border-radius: 11px; padding: 6px; text-align: center; }
+    .c-skill-item { padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); }
+
+    /* ================= 3. 인게임 세로 화면 ================= */
+    #mobile-shell {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: env(safe-area-inset-top, 10px) 12px env(safe-area-inset-bottom, 12px);
+      opacity: 0;
+      transition: opacity 0.35s ease;
+    }
+    #mobile-shell.visible { opacity: 1; }
+    .interactive { pointer-events: auto; }
+
+    .top-capsule-wrap { display: flex; flex-direction: column; gap: 5px; }
+    .dynamic-capsule { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .dc-row-1 { display: flex; justify-content: space-between; align-items: center; }
+    .dc-left, .dc-right { display: flex; align-items: center; gap: 4px; }
+    .mini-icon-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .dc-scoreboard {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.28);
+      padding: 5px 12px;
+      border-radius: 999px;
+    }
+    .team-pips-wrap { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; }
+    .pips { display: flex; gap: 5px; }
+    .pip { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3); }
+    .pip.ally-on { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); border-color: #fff; }
+    .pip.enemy-on { background: var(--red); box-shadow: 0 0 10px var(--red); border-color: #fff; }
+
+    .sub-pills-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .stage-strip, .synergy-strip { display: flex; gap: 4px; padding: 4px 8px; border-radius: 999px; overflow-x: auto; }
+    .st-pill { padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; color: var(--sub); cursor: pointer; }
+    .st-pill.active { background: var(--blue); color: #fff; }
+    .st-pill.cleared { color: var(--green); }
+    .syn-item { font-size: 9.5px; font-weight: 700; color: var(--sub); white-space: nowrap; padding: 2px 6px; border-radius: 999px; }
+    .syn-item.active { background: rgba(255, 214, 10, 0.22); color: var(--gold); border: 1px solid rgba(255, 214, 10, 0.5); }
+
+    /* 하단 컨트롤 & 스와이프형 3D 영웅 선택 드로어 */
+    .bottom-hud-area { display: flex; flex-direction: column; gap: 7px; }
+    .roster-drawer {
+      padding: 11px;
+      overflow: hidden;
+      max-height: 410px;
+      opacity: 1;
+      transform: translateY(0);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      transition: all 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .roster-drawer.collapsed {
+      max-height: 0px;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      margin-bottom: -8px;
+      border-width: 0px;
+      transform: translateY(40px);
+      pointer-events: none;
+    }
+
+    /* 직관적 영웅 브리핑 & 좌우 넘기기 헤더 */
+    .hero-inspector-box {
+      background: rgba(0, 0, 0, 0.38);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .hi-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .hi-skills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .hi-skill-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 6px 8px; }
+    .hi-skill-card.ult { background: rgba(255, 214, 10, 0.12); border-color: rgba(255, 214, 10, 0.45); }
+    .hi-combo-bar {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: rgba(191, 90, 242, 0.16);
+      border: 1px solid rgba(191, 90, 242, 0.4);
+      color: #e9d5ff;
+      display: flex;
+      justify-content: space-between;
+    }
+    .hi-combo-bar.ready { background: linear-gradient(90deg, rgba(255, 214, 10, 0.25), rgba(191, 90, 242, 0.3)); border-color: var(--gold); color: #fff3b0; }
+
+    .role-filter-tabs { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .rf-tab {
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--sub);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .rf-tab.active { background: rgba(90, 200, 250, 0.28); border-color: var(--cyan); color: #fff; }
+
+    /* 가로 스와이프 & 그리드 겸용 영웅 카드 덱 */
+    .apple-hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      max-height: 118px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .apple-hero-card {
+      padding: 6px 4px;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1.5px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+    .apple-hero-card.inspected { border-color: #fff; background: rgba(255, 255, 255, 0.16); }
+    .apple-hero-card.deployed { background: rgba(10, 132, 255, 0.26); border-color: var(--cyan); }
+    .ahc-avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #fff; }
+    .ahc-name { font-size: 10px; font-weight: 800; }
+    .ahc-role { font-size: 8px; color: var(--sub); }
+    .ahc-check {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--cyan);
+      color: #000;
+      font-size: 8px;
+      font-weight: 900;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .apple-hero-card.deployed .ahc-check { display: flex; }
+
+    /* 슬림 궁극기 & 전투 컨트롤 독 */
+    .compact-action-bar { padding: 9px 11px; display: flex; flex-direction: column; gap: 6px; }
+    .turn-ult-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(255, 214, 10, 0.14);
+      border: 1px solid rgba(255, 214, 10, 0.4);
+      color: #fde68a;
+    }
+    .turn-ult-banner.used { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); color: var(--sub); }
+    .compact-row-main { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .drawer-toggle-btn {
+      padding: 9px 10px;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .drawer-toggle-btn.open { background: rgba(90, 200, 250, 0.22); border-color: var(--cyan); }
+
+    .quick-skill-orbs { display: flex; gap: 6px; align-items: center; overflow-x: auto; flex: 1; justify-content: center; }
+    .skill-orb {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 214, 10, 0.42), rgba(20, 25, 40, 0.92));
+      border: 2px solid var(--gold);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .skill-orb.dual-ready {
+      background: radial-gradient(circle at 30% 30%, rgba(191, 90, 242, 0.7), rgba(255, 214, 10, 0.48));
+      box-shadow: 0 0 16px rgba(191, 90, 242, 0.85);
+      animation: dualPulse 1s infinite alternate;
+    }
+    @keyframes dualPulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+    .skill-orb.used { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; animation: none; box-shadow: none; }
+    .orb-name { font-size: 9px; font-weight: 900; }
+    .orb-star { font-size: 7.5px; color: var(--gold); font-weight: 900; }
+
+    .fight-pill-btn {
+      padding: 10px 14px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .fight-pill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ================= 모달 공통 & 로그인(3자리 PIN) & MVP 피트니스 링 ================= */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 75;
+      background: rgba(4, 7, 15, 0.74);
+      backdrop-filter: blur(16px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .sheet-card {
+      width: 100%;
+      max-width: 440px;
+      max-height: 82dvh;
+      background: var(--glass-heavy);
+      border: 1px solid var(--spec);
+      border-radius: 26px;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 13px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* 로그인 입력 폼 */
+    .pin-input-row { display: flex; gap: 8px; align-items: center; }
+    .glass-input {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    /* Apple Fitness 링 스타일 MVP 리포트 */
+    .mvp-flex { display: flex; align-items: center; gap: 16px; padding: 10px; background: rgba(255,255,255,0.04); border-radius: 18px; }
+    .fitness-rings-svg { width: 96px; height: 96px; flex-shrink: 0; transform: rotate(-90deg); }
+
+    /* 3D 유닛 오버레이 HUD */
+    .unit-hud { position: absolute; transform: translate(-50%, -100%); width: 64px; pointer-events: none; }
+    .unit-hud-name { font-size: 9.5px; font-weight: 800; text-align: center; margin-bottom: 2px; text-shadow: 0 1px 4px #000; white-space: nowrap; }
+    .hp-bar { width: 100%; height: 5px; background: rgba(15, 23, 42, 0.88); border-radius: 3px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.22); margin-bottom: 2px; }
+    .hp-fill { height: 100%; background: linear-gradient(90deg, #30d158, #66e384); transition: width 0.12s ease; }
+    .hp-fill.enemy { background: linear-gradient(90deg, #ff453a, #ff6961); }
+    .mp-bar { width: 100%; height: 3px; background: rgba(15, 23, 42, 0.88); border-radius: 2px; overflow: hidden; }
+    .mp-fill { height: 100%; background: linear-gradient(90deg, #5ac8fa, #0a84ff); transition: width 0.12s ease; }
+
+    .float-dmg {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-weight: 900;
+      font-size: 13px;
+      text-shadow: 0 2px 6px #000;
+      pointer-events: none;
+      animation: popFloat 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes popFloat {
+      0% { opacity: 1; transform: translate(-50%, 0) scale(0.75); }
+      25% { opacity: 1; transform: translate(-50%, -14px) scale(1.12); }
+      100% { opacity: 0; transform: translate(-50%, -36px) scale(0.92); }
+    }
+
+    #toast-banner {
+      position: fixed;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      z-index: 50;
+      padding: 13px 22px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.24s ease;
+      min-width: 240px;
+    }
+    #toast-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body class="weather-DAY">
+
+  <!-- 0. THRE3RIC STUDIO 메탈릭 블루 인트로 -->
+  <div id="intro-screen">
+    <div class="intro-logo-wrap">
+      <div class="intro-blue-backlight"></div>
+      <div class="intro-metallic-title">THRE3RIC</div>
+      <div class="intro-metallic-sub">STUDIO</div>
+      <div class="intro-blue-ring"></div>
+    </div>
+    <div style="position:absolute; bottom:34px; font-size:11px; color:rgba(255,255,255,0.42); font-weight:700;">TAP ANYWHERE TO START</div>
+  </div>
+
+  <div id="canvas-container"></div>
+  <div id="overlay-layer"></div>
+  <div id="warp-tunnel"></div>
+
+  <div id="cinematic-bars">
+    <div class="letterbox"><span class="cinematic-caption" id="cinematic-top-text">★ ULTIMATE ACTIVATED ★</span></div>
+    <div class="letterbox"><span class="cinematic-caption" id="cinematic-bot-text">0.18x SLOW MOTION</span></div>
+  </div>
+
+  <!-- ================= 1. 메인 화면 (THRE3RIC CHESS) ================= -->
+  <div id="title-screen">
+    <div class="vision-glass profile-widget">
+      <div class="profile-top">
+        <div class="profile-left" id="btn-open-login" title="클릭하여 사령관 계정/PIN 변경">
+          <div class="avatar-ring" id="profile-avatar-ring">
+            <span id="profile-avatar-char">한</span>
+            <span class="lv-badge">Lv.38</span>
+          </div>
+          <div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:15px; font-weight:900;" id="ui-profile-name">한성우 사령관</span>
+              <span style="font-size:10px; background:rgba(255,255,255,0.12); padding:2px 6px; border-radius:6px; color:var(--cyan);" id="ui-profile-pin">PIN #777</span>
+            </div>
+            <div style="font-size:10.5px; color:var(--cyan); font-weight:700; margin-top:2px;">💎 THRE3RIC 마스터 · 계정 변경 터치</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <button class="vision-pill" id="btn-title-tutorial">🎓 튜토리얼</button>
+          <button class="vision-pill" id="btn-title-weather">☀️ 낮</button>
+        </div>
+      </div>
+
+      <div class="profile-stats-row">
+        <div class="p-stat"><span class="p-stat-label">트로피</span><span class="p-stat-val" style="color:var(--gold);" id="profile-trophies">🏆 1,920</span></div>
+        <div class="p-stat"><span class="p-stat-label">수집 영웅</span><span class="p-stat-val" style="color:var(--green);">12 / 12</span></div>
+        <div class="p-stat"><span class="p-stat-label">최애 영웅</span><span class="p-stat-val" style="color:var(--cyan);" id="profile-fav-name">덕키</span></div>
+        <div class="p-stat"><span class="p-stat-label">적용 스킨</span><span class="p-stat-val" style="color:var(--purple);" id="profile-skin-name">기본</span></div>
+      </div>
+    </div>
+
+    <!-- 중앙 3D 대표 영웅 & 스킨 변경 플로팅 캡슐 -->
+    <div class="vision-glass fav-hero-floating" id="btn-change-fav-quick">
+      <span style="font-size:11px; font-weight:900; color:var(--gold);">★ 대표 영웅</span>
+      <span style="font-size:12.5px; font-weight:900;" id="floating-fav-label">덕키 (보라색 오리)</span>
+      <span style="font-size:10px; color:var(--sub);">↔ 360° 드래그 · 스킨/도감 →</span>
+    </div>
+
+    <div class="vision-glass title-bottom-dock">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+        <div>
+          <div style="font-size:10px; font-weight:800; color:var(--cyan); letter-spacing:0.08em;">THRE3RIC STUDIO · OFFICIAL v6.0</div>
+          <div class="brand-logo">THRE3RIC CHESS</div>
+        </div>
+        <span style="font-size:11px; color:var(--sub);">12 Heroes · 3D Skin & BGM</span>
+      </div>
+
+      <div class="news-pill-bar" id="btn-open-news-banner">
+        <div style="display:flex; align-items:center; gap:7px;">
+          <span style="background:var(--purple); color:#fff; padding:2px 7px; border-radius:999px; font-size:10px; font-weight:900;">NEW</span>
+          <span style="font-size:11px; font-weight:700; color:#e2e8f0;">신규 보라색 오리 ‘덕키’ 출시 · 3D 스킨 · MVP 링 · 신스 BGM!</span>
+        </div>
+        <span style="font-size:10.5px; color:var(--cyan); font-weight:800;">뉴스 →</span>
+      </div>
+
+      <button class="vision-pill primary warp-btn" id="btn-warp-start">전장 입장 (WARP TO ARENA)</button>
+
+      <div class="title-nav-grid">
+        <button class="vision-pill" id="btn-title-codex">🎨 도감·스킨</button>
+        <button class="vision-pill" id="btn-title-guide">📘 조합·콤보</button>
+        <button class="vision-pill" id="btn-title-news">📰 업데이트</button>
+        <button class="vision-pill" id="btn-title-settings">⚙️ 환경설정</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 2. 3D 영웅 도감 & 네온 스킨 커스터마이징 스튜디오 ================= -->
+  <div id="codex-screen">
+    <div class="vision-glass codex-top-bar">
+      <button class="vision-pill" id="btn-codex-back">← 메인/전장</button>
+      <div style="text-align:center;">
+        <div style="font-size:13px; font-weight:900;">3D SKIN & HERO STUDIO</div>
+        <div style="font-size:10px; color:var(--sub);" id="codex-counter-text">1 / 12 HEROES</div>
+      </div>
+      <button class="vision-pill gold" id="btn-set-favorite">★ 대표 영웅 등록</button>
+    </div>
+
+    <div class="codex-stage-controls">
+      <button class="vision-pill arrow-circle" id="btn-codex-prev">◀</button>
+      <span class="rotate-hint">👆 3D 캐릭터 드래그 회전 · 아래에서 스킨 즉시 도색</span>
+      <button class="vision-pill arrow-circle" id="btn-codex-next">▶</button>
+    </div>
+
+    <div class="vision-glass codex-info-sheet">
+      <!-- 1) 3D 네온 스킨 테마 선택 바 -->
+      <div class="skin-selector-row" id="skin-selector-row"></div>
+      <!-- 2) 12인 영웅 캐러셀 -->
+      <div class="hero-carousel-pills" id="codex-pills"></div>
+      <!-- 3) 상세 설명 -->
+      <div id="codex-detail-body"></div>
+    </div>
+  </div>
+
+  <!-- ================= 3. 인게임 세로 화면 ================= -->
+  <div id="mobile-shell">
+    <div class="top-capsule-wrap interactive">
+      <div class="vision-glass dynamic-capsule">
+        <div class="dc-row-1">
+          <div class="dc-left">
+            <button class="mini-icon-btn" id="btn-home">🏠</button>
+            <span style="font-size:11.5px; font-weight:900; color:var(--cyan);" id="ui-stage-pill">STAGE 1</span>
+            <span style="font-size:10.5px; font-weight:700; color:var(--gold);" id="ui-phase-text">R1 · 배치</span>
+          </div>
+          <div class="dc-right">
+            <button class="mini-icon-btn" id="btn-ingame-weather" title="날씨 변경">☀️</button>
+            <button class="mini-icon-btn" id="btn-ingame-tutorial">🎓</button>
+            <button class="mini-icon-btn" id="btn-ingame-guide">📘조합</button>
+            <button class="mini-icon-btn" id="btn-ingame-codex">🎨스킨</button>
+            <button class="mini-icon-btn" id="btn-speed">1x</button>
+            <button class="mini-icon-btn" id="btn-cam">시점</button>
+            <button class="mini-icon-btn" id="btn-ingame-settings">⚙️</button>
+          </div>
+        </div>
+
+        <div class="dc-scoreboard">
+          <div class="team-pips-wrap" style="color:var(--cyan);">
+            <span id="ui-commander-name">ALLY</span>
+            <div class="pips" id="ally-pips"><div class="pip"></div><div class="pip"></div></div>
+          </div>
+          <span style="font-size:10px; font-weight:800; color:var(--sub);">3판 2선승</span>
+          <div class="team-pips-wrap" style="color:var(--red);">
+            <div class="pips" id="enemy-pips"><div class="pip"></div><div class="pip"></div></div>
+            <span>ENEMY</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sub-pills-row">
+        <div class="vision-glass stage-strip" id="stage-dots-box"></div>
+        <div class="vision-glass synergy-strip" id="synergy-box"></div>
+      </div>
+    </div>
+
+    <!-- 하단 컨트롤: 직관적 3D 캐러셀 영웅 선택 드로어 + 슬림 궁극기 바 -->
+    <div class="bottom-hud-area interactive">
+      <div class="vision-glass roster-drawer" id="roster-drawer">
+        <!-- 좌우 화살표로 넘기며 바로 출전시키는 직관적 영웅 브리핑 카드 -->
+        <div class="hero-inspector-box" id="hero-inspector-box"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+          <div class="role-filter-tabs" id="role-filter-tabs"></div>
+          <span style="font-size:10px; font-weight:800; color:var(--cyan); white-space:nowrap;" id="ui-deploy-count">3 / 3명</span>
+        </div>
+
+        <div class="apple-hero-grid" id="roster-grid"></div>
+      </div>
+
+      <div class="vision-glass compact-action-bar">
+        <div class="turn-ult-banner" id="turn-ult-banner">
+          <span>⚡ 궁극기(매 턴 합산 1회): 파트너 동시 배치 시 [⚡듀얼 콤보] 발동!</span>
+          <span id="turn-ult-count-text">1 / 1회</span>
+        </div>
+
+        <div class="compact-row-main">
+          <button class="drawer-toggle-btn open" id="btn-toggle-drawer">
+            <span id="drawer-toggle-label">영웅창 닫기 ▼</span>
+          </button>
+          <div class="quick-skill-orbs" id="quick-skill-orbs"></div>
+          <button class="fight-pill-btn" id="btn-fight">전투 시작 ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 중앙 토스트 배너 -->
+  <div class="vision-glass" id="toast-banner">
+    <div style="font-size:18px; font-weight:900;" id="toast-title">ROUND START</div>
+    <div style="font-size:12px; color:var(--sub); margin-top:4px;" id="toast-sub">전투가 시작됩니다</div>
+  </div>
+
+  <!-- ================= 모달 1: 사령관 로그인 (이름 + 3자리 숫자 PIN) ================= -->
+  <div id="login-modal" class="modal-backdrop interactive">
+    <div class="sheet-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:17px; font-weight:900;">🔐 THRE3RIC 사령관 로그인</div>
+          <div style="font-size:11px; color:var(--sub);">사용자 이름과 비밀번호 숫자 3자리를 입력하세요</div>
+        </div>
+        <button class="vision-pill" data-close="login-modal">닫기 ✕</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div>
+          <div style="font-size:11px; font-weight:800; color:var(--cyan); margin-bottom:4px;">사령관 이름 (USERNAME)</div>
+          <input type="text" id="login-name-input" class="glass-input" style="width:100%;" maxlength="14" value="한성우 사령관" placeholder="이름 입력" />
+        </div>
+        <div>
+          <div style="font-size:11px; font-weight:800; color:var(--gold); margin-bottom:4px;">비밀번호 숫자 3자리 (3-DIGIT PIN)</div>
+          <input type="password" id="login-pin-input" class="glass-input" style="width:100%; letter-spacing:8px; text-align:center; font-size:18px;" maxlength="3" inputmode="numeric" value="777" placeholder="000" />
+        </div>
+        <button class="vision-pill primary" id="btn-save-login" style="padding:13px; font-size:14px;">계정 접속 및 저장 ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 모달 2: 전투 종료 MVP 클로즈업 & Apple 피트니스 링 통계 ================= -->
+  <div id="mvp-modal" class="modal-backdrop interactive">
+    <div class="sheet-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:18px; font-weight:900; color:var(--gold);" id="mvp-header-title">🏆 ROUND VICTORY · MVP 리포트</div>
+          <div style="font-size:11px; color:var(--sub);" id="mvp-header-sub">이번 라운드 최고 활약 영웅 & 활동 링 통계</div>
+        </div>
+      </div>
+
+      <div class="mvp-flex" id="mvp-summary-box"></div>
+      <div id="mvp-bars-list" style="display:flex; flex-direction:column; gap:6px;"></div>
+
+      <button class="vision-pill primary" id="btn-mvp-continue" style="padding:13px; font-size:14px;">다음 라운드 진행 ▶</button>
+    </div>
+  </div>
+
+  <!-- ================= 모달 3: 고퀄리티 5단계 튜토리얼 ================= -->
+  <div id="tutorial-modal" class="modal-backdrop interactive">
+    <div class="sheet-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11px; font-weight:900; padding:4px 10px; border-radius:999px; background:rgba(10,132,255,0.25); color:var(--cyan);" id="tut-step-badge">STEP 1 / 5</span>
+        <button class="vision-pill" id="btn-tut-skip">건너뛰기 ✕</button>
+      </div>
+      <div style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:16px; text-align:center;" id="tut-visual-stage"></div>
+      <div>
+        <div style="font-size:18px; font-weight:900;" id="tut-title"></div>
+        <div style="font-size:12px; color:#cbd5e1; line-height:1.5; margin-top:5px;" id="tut-desc"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <button class="vision-pill" id="btn-tut-prev" style="min-width:90px;">◀ 이전</button>
+        <button class="vision-pill primary" id="btn-tut-next" style="flex:1; padding:11px;">다음 ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 모달 4: 조합 & 역할군 가이드 ================= -->
+  <div id="guide-modal" class="modal-backdrop interactive">
+    <div class="sheet-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:16px; font-weight:900;">📘 역할군 · 듀얼 콤보 · 추천 덱</div>
+        <button class="vision-pill" data-close="guide-modal">닫기 ✕</button>
+      </div>
+      <div class="role-filter-tabs" id="guide-tabs">
+        <button class="rf-tab active" data-gtab="combos">⚡ 듀얼 콤보</button>
+        <button class="rf-tab" data-gtab="roles">🛡️ 5대 역할군</button>
+        <button class="rf-tab" data-gtab="decks">🏆 추천 조합 적용</button>
+      </div>
+      <div id="guide-body-container" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+
+  <!-- ================= 모달 5: 드래그 스크롤 업데이트 뉴스 ================= -->
+  <div id="news-modal" class="modal-backdrop interactive">
+    <div class="sheet-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:16px; font-weight:900;">📰 THRE3RIC CHESS 업데이트 뉴스</div>
+          <div style="font-size:10.5px; color:var(--sub);">아래로 드래그하여 전체 패치 기록을 확인하세요</div>
+        </div>
+        <button class="vision-pill" data-close="news-modal">닫기 ✕</button>
+      </div>
+      <div id="news-list-container" style="display:flex; flex-direction:column; gap:9px;"></div>
+    </div>
+  </div>
+
+  <!-- ================= 모달 6: 깔끔한 환경 설정 ================= -->
+  <div id="settings-modal" class="modal-backdrop interactive">
+    <div class="sheet-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:16px; font-weight:900;">⚙️ 환경 설정 (SETTINGS)</div>
+        <button class="vision-pill" data-close="settings-modal">닫기 ✕</button>
+      </div>
+
+      <div class="setting-item">
+        <div>
+          <div style="font-size:12.5px; font-weight:800;">🎹 절차적 신스웨이브 BGM (배경음악)</div>
+          <div style="font-size:10.5px; color:var(--sub);">로비 앰비언트 화음 & 전투 신스 비트 자동 연주</div>
+        </div>
+        <button class="vision-pill primary" id="set-bgm">ON</button>
+      </div>
+
+      <div class="setting-item">
+        <div>
+          <div style="font-size:12.5px; font-weight:800;">🎬 궁극기 & 처형 피니셔 액션캠</div>
+          <div style="font-size:10.5px; color:var(--sub);">슬로우 모션 줌인 & 마지막 적 처형 흑백 플래시</div>
+        </div>
+        <button class="vision-pill primary" id="set-action-cam">ON</button>
+      </div>
+
+      <div class="setting-item">
+        <div>
+          <div style="font-size:12.5px; font-weight:800;">🔊 타격 & 스킬 효과음 (SFX)</div>
+          <div style="font-size:10.5px; color:var(--sub);">오리 총성, 사슬 그랩, 쌍룡 효과음</div>
+        </div>
+        <button class="vision-pill primary" id="set-sound">ON</button>
+      </div>
+
+      <div class="setting-item">
+        <div>
+          <div style="font-size:12.5px; font-weight:800;">🌸 자연 환경 파티클</div>
+          <div style="font-size:10.5px; color:var(--sub);">강물 물방울 & 벚꽃잎·반딧불이 표시</div>
+        </div>
+        <button class="vision-pill primary" id="set-particles">ON</button>
+      </div>
+
+      <div class="setting-item">
+        <div>
+          <div style="font-size:12.5px; font-weight:800;">🔄 스테이지 초기화</div>
+          <div style="font-size:10.5px; color:var(--sub);">현재 스테이지 라운드 및 궁극기 리셋</div>
+        </div>
+        <button class="vision-pill" id="btn-reset-in-settings">리셋 실행</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**************************************************************
+     * 안전한 DOM 헬퍼 (Safari null 에러 원천 차단)
+     **************************************************************/
+    const $ = (id) => document.getElementById(id);
+    const setTxt = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+
+    /**************************************************************
+     * 1. 3D 스킨 테마 5종 & 패치노트 데이터
+     **************************************************************/
+    const SKIN_THEMES = {
+      DEFAULT: { id: 'DEFAULT', name: '기본 아머', armor: null, glow: null, metal: 0.55 },
+      CYBER: { id: 'CYBER', name: '⚡ 사이버 네온', armor: 0x00f5d4, glow: 0xff007f, metal: 0.75 },
+      DARK: { id: 'DARK', name: '🌑 다크 매터', armor: 0x1e1b4b, glow: 0xa855f7, metal: 0.85 },
+      GOLD: { id: 'GOLD', name: '👑 로얄 골드', armor: 0xfbbf24, glow: 0xfef08a, metal: 0.92 },
+      BLOOD: { id: 'BLOOD', name: '🩸 블러드 문', armor: 0x991b1b, glow: 0xf43f5e, metal: 0.7 }
+    };
+
+    const PATCH_NOTES = [
+      {
+        version: 'v6.0 [THRE3RIC CHESS 공식 리브랜딩 & 보라색 오리 ‘덕키’ 출시]',
+        date: '2026.10.14',
+        color: '#a855f7',
+        items: [
+          '🦆 [신규 영웅: 덕키(보라색 오리)] "탕탕! 빗나감 빗나감! 이런;;;" 에임이 안 좋아 총알이 사방으로 빗나가지만, 궁극기로 체력이 가장 적은 아군을 안전한 곳으로 끌어와 살리는 구조 전문가 합류!',
+          '🎨 [3D 스킨 & 네온 스튜디오] 도감에서 기본 / 사이버 네온 / 다크 매터 / 로얄 골드 / 블러드 문 테마로 즉시 도색 및 인게임 반영',
+          '📊 [MVP 클로즈업 & Apple 피트니스 링 통계] 라운드 종료 시 MVP 영웅 카메라 줌인 및 딜량·힐량·탱킹량 3색 피트니스 링 리포트 표시',
+          '💥 [처형 피니셔 캠 & 절차적 BGM] 마지막 적 처치 시 흑백 반전 임팩트 플래시 슬로우 연출 및 Web Audio 실시간 신스웨이브 BGM 생성기 탑재',
+          '🌊 [자연 지형 개선 & PIN 로그인] 시야를 가리던 강 위 돌다리를 제거하여 맑은 에테르 강물을 살리고, 이름+3자리 숫자 PIN 로그인 추가'
+        ]
+      },
+      {
+        version: 'v5.0 [듀얼 콤보 궁극기 & 팔칸·베놈·미라주 업데이트]',
+        date: '2026.10.13',
+        color: '#38bdf8',
+        items: [
+          '⚡ 파트너 영웅 동시 배치 시 3D 황금 연결선 생성 및 합동 듀얼 콤보 궁극기 발동',
+          '🤖 3D 메가 터렛 소환사 팔칸, 공중 도약 암살자 베놈, 홀로그램 분신 술사 미라주 출시'
+        ]
+      }
+    ];
+
+    const TUTORIAL_STEPS = [
+      {
+        badge: 'STEP 1 / 5 · THRE3RIC CHESS 기본 규칙',
+        title: '맑은 에테르 강을 사이에 둔 3×3 전장',
+        desc: '하단 3×3 타일이 아군 진영, 강 건너 상단 3×3 타일이 적군 진영입니다. 3D 영웅을 직접 드래그해 원하는 타일에 배치하세요.',
+        html: `<div style="font-size:28px;">🌊 🦆 ⚔️ 🐉</div><div style="font-size:11.5px; color:var(--cyan); font-weight:800; margin-top:6px;">전열(앞줄)엔 탱커, 후열(뒷줄)엔 원딜과 보라색 오리 덕키를 배치하세요!</div>`
+      },
+      {
+        badge: 'STEP 2 / 5 · 신규 영웅 보라색 오리 ‘덕키’',
+        title: '탕탕! 빗나감;; 하지만 아군 구조는 1등!',
+        desc: '보라색 오리 [덕키]의 일반 공격은 에임이 나빠 얇은 총알이 빗나가기도 하지만, 궁극기로 체력이 가장 위험한 아군을 안전한 뒷줄 타일로 즉시 끌어와 살려냅니다!',
+        html: `<div style="font-size:12px; font-weight:900; color:#e9d5ff;">🦆 "탕탕! 빗나감! 빗나감! 이런;;;"<br><span style="color:var(--gold);">★ 궁극기: 생명의 오리 밧줄 (위기 아군 긴급 견인 구조!)</span></div>`
+      },
+      {
+        badge: 'STEP 3 / 5 · ⚡듀얼 콤보 합동 궁극기',
+        title: '파트너와 함께 배치하면 합동 필살기 발동!',
+        desc: '짝이 맞는 두 영웅(예: 한성×그래퍼, 덕키×라그나로크, 팔칸×미라주)을 함께 보드에 올리면 발밑에 황금선이 연결되고 [⚡DUAL] 합동 궁극기가 발동합니다.',
+        html: `<div style="font-size:12px; font-weight:900; color:var(--gold);">🪝 그래퍼 사슬 견인 ⚡ 🐉 한성 2열 쌍룡 관통!<br>🦆 덕키 아군 긴급 구조 ⚡ 🛡️ 라그나로크 대지분쇄!</div>`
+      },
+      {
+        badge: 'STEP 4 / 5 · 🎨 3D 스킨 도색 스튜디오',
+        title: '내 영웅을 네온·골드·다크매터로 커스텀!',
+        desc: '[🎨 도감·스킨] 메뉴에서 12명의 영웅을 360° 회전시키며 [사이버 네온 / 로얄 골드 / 블러드 문] 등 5가지 3D 스킨을 즉시 입히고 전장에 출격시킬 수 있습니다.',
+        html: `<div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;"><span class="skin-chip active">⚡ 사이버 네온</span><span class="skin-chip active">👑 로얄 골드</span><span class="skin-chip active">🩸 블러드 문</span></div>`
+      },
+      {
+        badge: 'STEP 5 / 5 · 🏆 MVP 피트니스 링 & 피니셔',
+        title: '전투 후 MVP 클로즈업과 딜량 링을 확인하세요!',
+        desc: '마지막 적이 쓰러질 때 흑백 반전 피니셔 캠이 터지며, 라운드 종료 시 가장 활약한 MVP 영웅 클로즈업과 Apple 피트니스 링 통계가 표시됩니다.',
+        html: `<div style="font-size:26px;">🏆 🎯 🎵</div><div style="font-size:11.5px; color:var(--green); font-weight:800;">준비가 끝났습니다! 지금 전장으로 입장하세요!</div>`
+      }
+    ];
+
+    /**************************************************************
+     * 2. Web Audio 사운드 & 절차적 배경음악(Procedural BGM) 생성기
+     **************************************************************/
+    const settings = { bgm: true, actionCam: true, sound: true, particles: true };
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function ensureAudio() {
+      if (!audioCtx && AudioCtx) audioCtx = new AudioCtx();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playTone(freq = 440, type = 'sine', duration = 0.12, vol = 0.07, endFreq = null) {
+      if (!settings.sound) return;
+      try {
+        ensureAudio();
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(endFreq || freq * 0.55, audioCtx.currentTime + duration);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    // 절차적 BGM 루프 (로비: 몽환적 앰비언트 패드 / 전투: 신스웨이브 아르페지오 비트)
+    let bgmStep = 0;
+    const AMBIENT_NOTES = [261.63, 329.63, 392.00, 493.88, 523.25, 392.00]; // Cmaj7 몽환 화음
+    const BATTLE_BASS = [110, 110, 130.81, 146.83, 110, 164.81, 146.83, 130.81]; // A minor 신스웨이브
+
+    setInterval(() => {
+      if (!settings.bgm || !audioCtx || audioCtx.state !== 'running') return;
+      bgmStep++;
+      if (state.screenMode === 'GAME' && state.phase === 'BATTLE') {
+        const freq = BATTLE_BASS[bgmStep % BATTLE_BASS.length];
+        playTone(freq, 'sawtooth', 0.22, 0.028, freq * 0.98);
+        if (bgmStep % 2 === 0) playTone(freq * 2, 'triangle', 0.12, 0.018, freq * 2);
+      } else if (bgmStep % 3 === 0) {
+        const freq = AMBIENT_NOTES[(bgmStep / 3) % AMBIENT_NOTES.length];
+        playTone(freq, 'sine', 0.95, 0.02, freq * 1.005);
+      }
+    }, 260);
+
+    /**************************************************************
+     * 3. 12인 오리지널 영웅 데이터 (보라색 오리 ‘덕키’ 포함!)
+     **************************************************************/
+    const ROLE_META = {
+      ALL: { id: 'ALL', label: '전체(12)' },
+      TANK: { id: 'TANK', label: '🛡️탱커', badge: '🛡️ 탱커', posTip: '전열(앞줄) 추천', desc: '최전선에서 적의 공격을 받아내고 진형을 붕괴시킵니다.' },
+      RANGED: { id: 'RANGED', label: '🏹원딜', badge: '🏹 원거리 딜러', posTip: '후열(뒷줄) 추천', desc: '후열에서 강력한 투사체와 일직선 관통 포격을 가합니다.' },
+      ASSASSIN: { id: 'ASSASSIN', label: '🗡️암살자', badge: '🗡️ 암살자', posTip: '측면/전열 추천', desc: '적 후열의 딜러에게 도약하거나 순간이동해 단숨에 처형합니다.' },
+      SUMMONER: { id: 'SUMMONER', label: '🤖소환사', badge: '🤖 소환사', posTip: '중열/후열 추천', desc: '3D 기관포탑이나 홀로그램 분신을 소환해 물량으로 압도합니다.' },
+      SUPPORT: { id: 'SUPPORT', label: '✨서포터', badge: '✨ 서포터·구조', posTip: '후열(뒷줄) 추천', desc: '위기에 처한 아군을 끌어와 살리거나 부활·빙결로 전장을 지배합니다.' }
+    };
+
+    const CHARACTERS = {
+      ducky: {
+        id: 'ducky',
+        name: '덕키',
+        fullName: '덕키 (Ducky · 보라색 오리)',
+        roleId: 'SUPPORT',
+        roleBadge: '✨ 서포터·구조',
+        color: 0xa855f7,
+        hex: '#a855f7',
+        hp: 880,
+        atk: 64,
+        range: 4.2,
+        atkSpeed: 1.85,
+        lore: '탕탕! 빗나감 빗나감! 이런;;; 에임이 안좋은 보라색 오리는 새로운 스킬을 터득했어요! 다른 영웅을 끌어서 살리는거요!',
+        basicName: '탕탕! 눈감고 기관단총 난사',
+        basicDesc: '초고속으로 얇은 총알을 마구 난사합니다! 에임이 나빠 탄환이 빗나가기도 하지만("빗나감!"), 눈먼 총알에 맞으면 꽤 아픕니다.',
+        ultName: '생명의 오리 밧줄 · 긴급 견인 구조!',
+        ultShort: '체력이 가장 없는 위기 아군을 안전한 뒷줄 빈 타일로 휙 끌어와 살리고 체력 420 회복 & 보호막!',
+        ultDesc: '체력이 가장 바닥난 아군에게 보라색 구명 밧줄을 던져 덕키 옆의 안전한 후열 빈 타일로 즉시 끌어당겨 구출하고 체력을 420 회복시킵니다!',
+        comboPartner: 'ragnarok',
+        comboName: '오리 구출 작전 & 발할라 대지분쇄',
+        comboDesc: '[덕키 × 라그나로크 동시 배치 시] 덕키가 빈사 상태의 아군을 안전지대로 끌어와 살리는 동시에, 라그나로크가 적 진영 한복판을 망치로 내려찍어 기절시킵니다!'
+      },
+      hanseong: {
+        id: 'hanseong',
+        name: '한성',
+        fullName: '한성 (Hanseong)',
+        roleId: 'RANGED',
+        roleBadge: '🏹 원거리 딜러',
+        color: 0x38bdf8,
+        hex: '#38bdf8',
+        hp: 800,
+        atk: 98,
+        range: 4.3,
+        atkSpeed: 1.18,
+        lore: '창공의 영혼 활을 다루는 신궁. 화살로 적을 꿰뚫고 궁극기로 전방 한 줄을 거대한 쌍룡으로 밀어버립니다.',
+        basicName: '푸른 영혼 화살 사격',
+        basicDesc: '원거리에서 푸른 영혼 화살을 발사하여 98의 정확한 물리 피해를 입힙니다.',
+        ultName: '용의 일격 (정면 1줄 쌍룡 관통)',
+        ultShort: '자신이 서 있는 정면 세로 한 줄(Column)을 거대한 3D 쌍룡으로 관통 폭격(340 피해 & 넉백)',
+        ultDesc: '전방을 향해 거대한 3D 쌍룡을 날려 자신이 위치한 세로 한 줄(Column)의 모든 적을 관통하며 340 피해를 입히고 뒤로 밀쳐냅니다.',
+        comboPartner: 'grappler',
+        comboName: '사슬 포박 & 영거리 2열 쌍룡 포격',
+        comboDesc: '[한성 × 그래퍼 동시 배치 시] 그래퍼가 적 후열 딜러를 한성의 정면 줄로 끌어당겨 묶고, 한성이 2줄의 특대형 황금·청룡을 동시에 발사합니다!'
+      },
+      grappler: {
+        id: 'grappler',
+        name: '그래퍼',
+        fullName: '그래퍼 (Grappler)',
+        roleId: 'TANK',
+        roleBadge: '🛡️ 탱커',
+        color: 0xff9f0a,
+        hex: '#ff9f0a',
+        hp: 1420,
+        atk: 86,
+        range: 1.6,
+        atkSpeed: 0.92,
+        lore: '거대한 3D 강철 사슬 갈고리로 적 후열 딜러를 내 코앞 타일까지 강제로 끌어당기는 사슬 집행자입니다.',
+        basicName: '고철 산탄포 사격',
+        basicDesc: '근거리의 적에게 대구경 고철 산탄총을 발사해 86의 물리 피해를 입힙니다.',
+        ultName: '강철 사슬 갈고리 포획 (Chain Hook)',
+        ultShort: '가장 멀리 있는 적에게 3D 사슬을 날려 내 바로 앞 타일로 강제 견인 + 300 피해 & 2.5초 기절',
+        ultDesc: '적 진영 가장 뒷줄의 딜러에게 3D 강철 사슬 갈고리를 발사해 자신의 바로 앞칸으로 강제로 끌어당긴 뒤 300 피해와 2.5초 기절을 먹입니다.',
+        comboPartner: 'hanseong',
+        comboName: '사슬 포박 & 영거리 2열 쌍룡 포격',
+        comboDesc: '[그래퍼 × 한성 동시 배치 시] 그래퍼가 사슬로 끌어온 적 위로 한성이 즉시 특대형 쌍룡을 영거리 발사하여 적 전열과 함께 쓸어버립니다!'
+      },
+      ragnarok: {
+        id: 'ragnarok',
+        name: '라그나로크',
+        fullName: '라그나로크 (Ragnarok)',
+        roleId: 'TANK',
+        roleBadge: '🛡️ 탱커',
+        color: 0xfbbf24,
+        hex: '#fbbf24',
+        hp: 1650,
+        atk: 78,
+        range: 1.4,
+        atkSpeed: 0.85,
+        lore: '발할라의 중장갑과 거대 룬 망치를 든 수호자. 망치로 대지를 내리쳐 전방의 적들을 공중으로 띄우고 기절시킵니다.',
+        basicName: '룬 해머 휘두르기',
+        basicDesc: '거대한 망치를 휘둘러 전방의 적과 옆 칸의 인접 적에게 충격파 피해를 입힙니다.',
+        ultName: '대지분쇄 (망치 강타 & 전방 기절)',
+        ultShort: '망치로 땅을 강타해 전방의 적들을 공중으로 띄우고 3.0초 동안 기절(260 충격파 피해)',
+        ultDesc: '거대 룬 망치를 높이 들어 대지를 내리찍어 전방의 적들을 공중으로 띄운 뒤 3.0초간 기절시킵니다.',
+        comboPartner: 'ducky',
+        comboName: '오리 구출 작전 & 발할라 대지분쇄',
+        comboDesc: '[라그나로크 × 덕키 동시 배치 시] 라그나로크가 적 전체를 망치로 찍어 기절시키는 동안 덕키가 위기에 처한 아군을 안전지대로 끌어와 회복시킵니다!'
+      },
+      falcan: {
+        id: 'falcan',
+        name: '팔칸',
+        fullName: '팔칸 (Falcan)',
+        roleId: 'SUMMONER',
+        roleBadge: '🤖 소환사',
+        color: 0xf97316,
+        hex: '#f97316',
+        hp: 980,
+        atk: 82,
+        range: 3.6,
+        atkSpeed: 1.08,
+        lore: '전장 빈 타일에 3D 자율 회전 기관포탑(Auto-Turret)을 공중 투하하여 화력망을 구축하는 엔지니어입니다.',
+        basicName: '마그마 리벳 건 발사',
+        basicDesc: '원거리에서 뜨거운 마그마 리벳 탄환을 발사하여 단일 대상에게 82 피해를 입힙니다.',
+        ultName: '3D 오토 메가 터렛 소환 (Turret Drop)',
+        ultShort: '아군 빈 타일에 적을 자동 사격하는 3D 회전 기관포탑을 소환',
+        ultDesc: '아군 진영의 빈 타일에 독립된 체력(680)과 고속 레이저 포신을 가진 [3D 메가 터렛]을 즉시 소환하여 함께 적을 사격합니다.',
+        comboPartner: 'mirage',
+        comboName: '메카닉 일루전 (더블 포탑 + 분신 군단)',
+        comboDesc: '[팔칸 × 미라주 동시 배치 시] 메가 터렛 2대와 홀로그램 분신 2기가 동시에 소환되어 전장을 아군 물량으로 가득 채웁니다!'
+      },
+      mirage: {
+        id: 'mirage',
+        name: '미라주',
+        fullName: '미라주 (Mirage)',
+        roleId: 'SUMMONER',
+        roleBadge: '🤖 소환사',
+        color: 0xe879f9,
+        hex: '#e879f9',
+        hp: 890,
+        atk: 84,
+        range: 3.8,
+        atkSpeed: 1.12,
+        lore: '자신과 똑같은 3D 홀로그램 분신들을 전장에 소환해 적진을 교란하고 폭파하는 환영 술사입니다.',
+        basicName: '프리즘 환영 광선',
+        basicDesc: '무지개빛 프리즘 구체들을 발사하여 원거리의 적에게 84 마법 피해를 입힙니다.',
+        ultName: '3D 홀로그램 분신 군단 소환 (Clone Army)',
+        ultShort: '전방 빈 타일에 적에게 돌진해 자폭(180 피해)하는 3D 홀로그램 분신 2기 즉시 소환',
+        ultDesc: '전방의 빈 타일들에 반투명 [3D 홀로그램 분신 2기]를 소환합니다. 분신은 적들의 공격을 대신 맞으며 폭발합니다.',
+        comboPartner: 'falcan',
+        comboName: '메카닉 일루전 (분신 군단 + 메가 포탑)',
+        comboDesc: '[미라주 × 팔칸 동시 배치 시] 홀로그램 분신 2기와 팔칸의 3D 메가 레이저 포탑이 동시에 소환됩니다!'
+      },
+      venom: {
+        id: 'venom',
+        name: '베놈',
+        fullName: '베놈 (Venom)',
+        roleId: 'ASSASSIN',
+        roleBadge: '🗡️ 암살자',
+        color: 0x10b981,
+        hex: '#10b981',
+        hp: 850,
+        atk: 104,
+        range: 2.2,
+        atkSpeed: 1.32,
+        lore: '맹독 수리검을 다루는 도약 암살자. 하늘 높이 점프해 적 진영 한복판으로 내려찍으며 사방에 독표창을 뿌립니다.',
+        basicName: '맹독 수리검 투척',
+        basicDesc: '날카로운 초록빛 맹독 표창을 던져 적에게 104의 물리·독 피해를 입힙니다.',
+        ultName: '공중 도약 · 8방향 맹독 폭우 (Sky Dive)',
+        ultShort: '하늘 높이 점프해 적 진영 중앙으로 급강하 착지하며 8방향 맹독 수리검 방사(310 광역 피해)',
+        ultDesc: '공중으로 높이 도약한 뒤 적 3×3 진영 한가운데로 급강하 착지하며 맹독 수리검을 폭발시켜 310 광역 피해를 입힙니다.',
+        comboPartner: 'zeno',
+        comboName: '쌍둥이 그림자 학살 (공중 독폭우 + 배후 처형)',
+        comboDesc: '[베놈 × 제노 동시 배치 시] 베놈이 공중에서 적진을 덮치는 순간 제노가 배후로 순간이동해 적들을 동시에 난도질합니다!'
+      },
+      zeno: {
+        id: 'zeno',
+        name: '제노',
+        fullName: '제노 (Zeno)',
+        roleId: 'ASSASSIN',
+        roleBadge: '🗡️ 암살자',
+        color: 0x8b5cf6,
+        hex: '#8b5cf6',
+        hp: 840,
+        atk: 118,
+        range: 1.4,
+        atkSpeed: 1.38,
+        lore: '차원 그림자를 넘어 가장 체력이 약한 적의 등 뒤로 순간이동해 단숨에 베어내는 사이버 암살자입니다.',
+        basicName: '초승달 암흑 쌍검 베기',
+        basicDesc: '양손의 플라즈마 쌍검으로 적을 빠르게 베어 118의 근접 피해를 입힙니다.',
+        ultName: '배후 순간이동 · 차원 일섬 (Shadow Slash)',
+        ultShort: '가장 체력이 낮은 적의 등 뒤로 즉시 순간이동하여 X자 공간 절단(420 처형 피해)',
+        ultDesc: '가장 체력이 낮은 적의 등 뒤로 즉시 순간이동하여 420의 치명적인 처형 피해를 입힙니다.',
+        comboPartner: 'venom',
+        comboName: '쌍둥이 그림자 학살 (배후 처형 + 공중 독폭우)',
+        comboDesc: '[제노 × 베놈 동시 배치 시] 제노의 배후 일섬과 베놈의 공중 도약 맹독 수리검 폭우가 동시에 터집니다!'
+      },
+      chrono: {
+        id: 'chrono',
+        name: '크로노',
+        fullName: '크로노 (Chrono)',
+        roleId: 'RANGED',
+        roleBadge: '🏹 원거리 딜러',
+        color: 0xfacc15,
+        hex: '#facc15',
+        hp: 780,
+        atk: 88,
+        range: 3.2,
+        atkSpeed: 1.55,
+        lore: '시간 가속기를 단 속공 딜러. 적 진영 한복판으로 점멸해 거대 시한폭탄을 던져놓고 원래 자리로 돌아옵니다.',
+        basicName: '크로날 쌍권총 연사',
+        basicDesc: '빠른 속도로 쌍권총을 연사하여 적에게 연속 피해를 입힙니다.',
+        ultName: '점멸 시한폭탄 투척 & 귀환 (Pulse Bomb)',
+        ultShort: '적진으로 순간 점멸해 3D 대형 시한폭탄을 폭파(330 광역 피해)시키고 원래 타일로 귀환',
+        ultDesc: '적 진영 한가운데로 점멸해 플라즈마 폭탄을 터뜨리고(330 광역 피해) 원래 위치로 안전하게 돌아옵니다.',
+        comboPartner: 'glacia',
+        comboName: '절대영도 시공간 폭파 (전체 빙결 + 시한폭탄)',
+        comboDesc: '[크로노 × 글라시아 동시 배치 시] 글라시아가 적 전체를 얼려버리고 크로노가 그 한복판에 폭탄을 터뜨립니다!'
+      },
+      glacia: {
+        id: 'glacia',
+        name: '글라시아',
+        fullName: '글라시아 (Glacia)',
+        roleId: 'SUPPORT',
+        roleBadge: '✨ 서포터·구조',
+        color: 0x22d3ee,
+        hex: '#22d3ee',
+        hp: 830,
+        atk: 88,
+        range: 4.2,
+        atkSpeed: 0.98,
+        lore: '하늘에서 거대한 얼음 운석을 떨어뜨려 적 진영 전체를 꽁꽁 얼려버리는 혹한의 여왕입니다.',
+        basicName: '만년설 고드름 창 발사',
+        basicDesc: '날카로운 얼음 창을 날려 원거리의 적에게 88 냉기 피해를 입힙니다.',
+        ultName: '거대 빙산 낙하 · 전체 빙결 (Absolute Zero)',
+        ultShort: '적 진영 상공에서 거대 얼음 운석을 떨어뜨려 적 전체 3.2초 완전 빙결 + 230 피해',
+        ultDesc: '적 진영 하늘에서 거대한 얼음 운석을 낙하시켜 모든 적을 3.2초 동안 얼려버립니다.',
+        comboPartner: 'chrono',
+        comboName: '절대영도 시공간 폭파 (전체 빙결 + 시한폭탄)',
+        comboDesc: '[글라시아 × 크로노 동시 배치 시] 글라시아의 빙산이 적 전체를 얼린 즉시 크로노가 시한폭탄으로 연쇄 폭파합니다!'
+      },
+      arc: {
+        id: 'arc',
+        name: '아크',
+        fullName: '아크 (Arc)',
+        roleId: 'RANGED',
+        roleBadge: '🏹 원거리 딜러',
+        color: 0x60a5fa,
+        hex: '#60a5fa',
+        hp: 1120,
+        atk: 85,
+        range: 3.2,
+        atkSpeed: 1.05,
+        lore: '양 어깨의 트윈 테슬라 캐논으로 연쇄 번개탄을 쏘고 하늘에서 뇌전 기둥을 내리꽂는 기갑 딜러입니다.',
+        basicName: '연쇄 플라즈마 전기탄',
+        basicDesc: '적에게 고압 전기탄을 발사해 85 피해를 입히고 인접한 적에게 전류를 튕깁니다.',
+        ultName: '위성 뇌전 기둥 폭격 (Thunder Strike)',
+        ultShort: '하늘에서 적 진영 전체에 거대한 푸른 번개 기둥을 내리꽂아 280 광역 감전 피해',
+        ultDesc: '적 진영 상공에서 초고압 푸른 번개 기둥들을 수직으로 내리꽂아 280 광역 피해를 입힙니다.',
+        comboPartner: 'lumina',
+        comboName: '천상의 뇌전 심판 (아군 부활 + 전체 낙뢰)',
+        comboDesc: '[아크 × 루미나 동시 배치 시] 루미나가 아군을 치유·부활시키는 동시에 아크가 적 전체에 심판의 번개 기둥을 꽂습니다!'
+      },
+      lumina: {
+        id: 'lumina',
+        name: '루미나',
+        fullName: '루미나 (Lumina)',
+        roleId: 'SUPPORT',
+        roleBadge: '✨ 서포터·구조',
+        color: 0x30d158,
+        hex: '#30d158',
+        hp: 890,
+        atk: 72,
+        range: 4.2,
+        atkSpeed: 1.0,
+        lore: '하늘에서 부활의 성광을 내려 쓰러진 아군을 그 자리에서 다시 일으켜 세우는 성녀입니다.',
+        basicName: '성광의 치유탄 (공격 & 힐)',
+        basicDesc: '적에게 72 빛 피해를 입힘과 동시에 가장 체력이 낮은 아군을 52만큼 치유합니다.',
+        ultName: '발키리 강림 · 아군 부활 (Resurrection)',
+        ultShort: '쓰러진 아군을 즉시 3D로 부활 + 아군 전원 체력 380 치유',
+        ultDesc: '황금 빛기둥을 내려 쓰러진 아군을 체력 75%로 즉시 부활시키고 모든 아군을 380 회복시킵니다.',
+        comboPartner: 'arc',
+        comboName: '천상의 뇌전 심판 (아군 부활 + 전체 낙뢰)',
+        comboDesc: '[루미나 × 아크 동시 배치 시] 아군 전원 부활·치유와 적 진영 전체 낙뢰 폭격이 동시에 발동합니다!'
+      }
+    };
+
+    const HERO_KEYS = Object.keys(CHARACTERS);
+
+    const RECOMMENDED_DECKS = [
+      {
+        name: '🦆 1. 보라색 오리 덕키 긴급구조 & 쌍룡덱',
+        synergyText: '탱커 2 + 원딜 1 + 서포터 1 (덕키×라그나로크 & 한성×그래퍼)',
+        desc: '전열의 라그나로크나 그래퍼가 위기에 빠지면 보라색 오리 덕키가 밧줄로 끌어와 살려내고, 한성이 일직선 쌍룡으로 적을 섬멸합니다.',
+        formation: [
+          { id: 'ragnarok', row: 0, col: 1 },
+          { id: 'grappler', row: 0, col: 0 },
+          { id: 'hanseong', row: 2, col: 0 },
+          { id: 'ducky', row: 2, col: 2 }
+        ]
+      },
+      {
+        name: '🤖 2. 무한 증식 메카닉 & 분신 군단덱',
+        synergyText: '소환사 2 + 탱커 1 (듀얼 콤보: 팔칸 × 미라주)',
+        desc: '팔칸과 미라주의 듀얼 콤보로 3D 메가 포탑 2대와 홀로그램 분신 2기를 동시에 소환해 물량으로 압살합니다.',
+        formation: [
+          { id: 'ragnarok', row: 0, col: 1 },
+          { id: 'mirage', row: 1, col: 0 },
+          { id: 'falcan', row: 2, col: 2 },
+          { id: 'ducky', row: 2, col: 1 }
+        ]
+      },
+      {
+        name: '🗡️ 3. 쌍둥이 그림자 후열 암살덱',
+        synergyText: '암살자 2 + 제어 1 (듀얼 콤보: 베놈 × 제노)',
+        desc: '베놈의 공중 도약 맹독 수리검 폭우와 제노의 배후 순간이동 처형으로 적 뒷줄부터 순식간에 지워버립니다.',
+        formation: [
+          { id: 'grappler', row: 0, col: 1 },
+          { id: 'venom', row: 0, col: 2 },
+          { id: 'zeno', row: 1, col: 0 },
+          { id: 'glacia', row: 2, col: 1 }
+        ]
+      }
+    ];
+
+    const STAGES = [
+      {
+        stage: 1,
+        name: 'STAGE 1 · 에테르 강변 정찰대',
+        weather: 'DAY',
+        maxAlly: 3,
+        scale: 0.85,
+        enemies: [
+          { id: 'ragnarok', row: 0, col: 1 },
+          { id: 'hanseong', row: 2, col: 0 },
+          { id: 'ducky', row: 2, col: 2 }
+        ]
+      },
+      {
+        stage: 2,
+        name: 'STAGE 2 · 사슬 집행자와 포탑 진지',
+        weather: 'DAY',
+        maxAlly: 3,
+        scale: 0.95,
+        enemies: [
+          { id: 'grappler', row: 0, col: 1 },
+          { id: 'falcan', row: 2, col: 2 },
+          { id: 'chrono', row: 1, col: 0 }
+        ]
+      },
+      {
+        stage: 3,
+        name: 'STAGE 3 · 황혼의 환영 암살단',
+        weather: 'SUNSET',
+        maxAlly: 4,
+        scale: 1.0,
+        enemies: [
+          { id: 'ragnarok', row: 0, col: 1 },
+          { id: 'venom', row: 0, col: 2 },
+          { id: 'mirage', row: 1, col: 0 },
+          { id: 'ducky', row: 2, col: 1 }
+        ]
+      },
+      {
+        stage: 4,
+        name: 'STAGE 4 · 노을빛 메카닉 결사대',
+        weather: 'SUNSET',
+        maxAlly: 4,
+        scale: 1.08,
+        enemies: [
+          { id: 'grappler', row: 0, col: 0 },
+          { id: 'arc', row: 1, col: 1 },
+          { id: 'falcan', row: 2, col: 2 },
+          { id: 'glacia', row: 2, col: 0 }
+        ]
+      },
+      {
+        stage: 5,
+        name: 'STAGE 5 [BOSS] · THRE3RIC 총사령부',
+        weather: 'NIGHT',
+        maxAlly: 4,
+        scale: 1.15,
+        enemies: [
+          { id: 'ragnarok', row: 0, col: 1 },
+          { id: 'grappler', row: 0, col: 0 },
+          { id: 'venom', row: 1, col: 2 },
+          { id: 'hanseong', row: 2, col: 1 },
+          { id: 'lumina', row: 2, col: 0 }
+        ]
+      }
+    ];
+
+    /**************************************************************
+     * 4. 게임 상태 & LocalStorage 계정(이름 + 3자리 PIN) 연동
+     **************************************************************/
+    const state = {
+      screenMode: 'INTRO',
+      prevScreen: 'TITLE',
+      diveProgress: 0,
+      commanderName: localStorage.getItem('t3_name') || '한성우 사령관',
+      commanderPin: localStorage.getItem('t3_pin') || '777',
+      trophies: parseInt(localStorage.getItem('t3_trophies') || '1920', 10),
+      favoriteHero: localStorage.getItem('t3_fav') || 'ducky',
+      heroSkins: JSON.parse(localStorage.getItem('t3_skins') || '{}'),
+      inspectedHero: 'ducky',
+      roleFilter: 'ALL',
+      guideTab: 'combos',
+      tutorialStep: 0,
+      codexHeroIdx: 0,
+      showcaseRotY: 0,
+      weather: 'DAY',
+      drawerOpen: true,
+      stageIdx: 0,
+      cleared: new Set(),
+      round: 1,
+      allyWins: 0,
+      enemyWins: 0,
+      phase: 'PREP',
+      speed: 1,
+      camIdx: 0,
+      allyFormation: [
+        { id: 'ragnarok', row: 0, col: 1 },
+        { id: 'hanseong', row: 2, col: 0 },
+        { id: 'ducky', row: 2, col: 2 }
+      ],
+      ultUsedThisTurn: false,
+      cameraShake: 0,
+      actionCam: { active: false, unit: null, timer: 0, timeScale: 1.0 },
+      mvpUnit: null,
+      pendingNextStep: null
+    };
+
+    function saveAccountData() {
+      try {
+        localStorage.setItem('t3_name', state.commanderName);
+        localStorage.setItem('t3_pin', state.commanderPin);
+        localStorage.setItem('t3_trophies', String(state.trophies));
+        localStorage.setItem('t3_fav', state.favoriteHero);
+        localStorage.setItem('t3_skins', JSON.stringify(state.heroSkins));
+      } catch (e) {}
+    }
+
+    function finishIntroScreen() {
+      if (state.screenMode !== 'INTRO') return;
+      ensureAudio();
+      state.screenMode = 'TITLE';
+      const introEl = $('intro-screen');
+      if (introEl) {
+        introEl.classList.add('fade-out');
+        setTimeout(() => { introEl.style.display = 'none'; }, 750);
+      }
+      playTone(240, 'triangle', 0.6, 0.08, 660);
+    }
+
+    $('intro-screen').onclick = finishIntroScreen;
+    setTimeout(finishIntroScreen, 2600);
+
+    /**************************************************************
+     * 5. Three.js 3D 씬 & 다리 없는 맑은 에테르 강/바다/숲 월드
+     **************************************************************/
+    const container = $('canvas-container');
+    const overlayLayer = $('overlay-layer');
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0f2942, 0.013);
+
+    const camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.1, 240);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xe0f2fe, 0.85);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
+    sunLight.position.set(12, 24, 14);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    scene.add(sunLight);
+
+    const riverGlowLight = new THREE.PointLight(0x38bdf8, 1.6, 20);
+    riverGlowLight.position.set(0, 2.5, 0);
+    scene.add(riverGlowLight);
+
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+
+    const oceanMat = new THREE.MeshStandardMaterial({ color: 0x0369a1, roughness: 0.16, metalness: 0.68, emissive: 0x075985, emissiveIntensity: 0.28 });
+    const oceanMesh = new THREE.Mesh(new THREE.CylinderGeometry(90, 90, 0.4, 64), oceanMat);
+    oceanMesh.position.y = -2.1;
+    worldGroup.add(oceanMesh);
+
+    const foamRing = new THREE.Mesh(
+      new THREE.RingGeometry(11.8, 12.6, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+    );
+    foamRing.position.y = -1.85;
+    worldGroup.add(foamRing);
+
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75, metalness: 0.2 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6, metalness: 0.1 });
+
+    const baseIsland = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 9.2, 2.2, 12), rockMat);
+    baseIsland.position.y = -1.25;
+    baseIsland.receiveShadow = true;
+    worldGroup.add(baseIsland);
+
+    const southLand = new THREE.Mesh(new THREE.BoxGeometry(14.5, 0.45, 7.2), grassMat);
+    southLand.position.set(0, -0.22, 4.3);
+    southLand.receiveShadow = true;
+    worldGroup.add(southLand);
+
+    const northLand = new THREE.Mesh(new THREE.BoxGeometry(14.5, 0.45, 7.2), grassMat);
+    northLand.position.set(0, -0.22, -4.3);
+    northLand.receiveShadow = true;
+    worldGroup.add(northLand);
+
+    // 돌다리 삭제 완료! 맑고 영롱하게 흐르는 에테르 강물과 폭포만 유지
+    const riverMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.6,
+      roughness: 0.08,
+      metalness: 0.85,
+      transparent: true,
+      opacity: 0.9
+    });
+    const riverMesh = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.22, 1.55), riverMat);
+    riverMesh.position.set(0, -0.16, 0);
+    worldGroup.add(riverMesh);
+
+    const waterfallMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.2, 1.55), riverMat);
+    waterfallMesh.position.set(7.6, -1.1, 0);
+    worldGroup.add(waterfallMesh);
+
+    const trees = [];
+    function createStylizedTree(x, z, type = 'pine', scale = 1.0) {
+      const tGroup = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 0.9, 8), new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.8 }));
+      trunk.position.y = 0.45;
+      tGroup.add(trunk);
+
+      if (type === 'pine') {
+        const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.45 });
+        for (let i = 0; i < 3; i++) {
+          const cone = new THREE.Mesh(new THREE.ConeGeometry(0.75 - i * 0.16, 0.95, 8), leafMat);
+          cone.position.y = 0.95 + i * 0.52;
+          tGroup.add(cone);
+        }
+      } else {
+        const sakuraMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, emissive: 0xdb2777, emissiveIntensity: 0.2, roughness: 0.4 });
+        const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(0.78, 1), sakuraMat);
+        crown.position.set(0, 1.35, 0);
+        tGroup.add(crown);
+      }
+      tGroup.position.set(x, 0, z);
+      tGroup.scale.setScalar(scale);
+      worldGroup.add(tGroup);
+      trees.push({ mesh: tGroup, phase: Math.random() * 6.28 });
+    }
+
+    [
+      [-4.6, 2.2, 'sakura', 1.1], [-5.4, 4.5, 'pine', 1.25], [-4.2, 6.2, 'pine', 0.95],
+      [4.6, 2.4, 'pine', 1.15], [5.5, 4.8, 'sakura', 1.2], [4.0, 6.4, 'pine', 1.0],
+      [-4.8, -2.3, 'pine', 1.2], [-5.5, -4.6, 'sakura', 1.15], [-3.8, -6.5, 'pine', 1.0],
+      [4.7, -2.5, 'sakura', 1.1], [5.4, -4.9, 'pine', 1.3], [4.1, -6.3, 'sakura', 0.95]
+    ].forEach(([x, z, t, s]) => createStylizedTree(x, z, t, s));
+
+    const natureParticleCount = 240;
+    const npGeo = new THREE.BufferGeometry();
+    const npPos = new Float32Array(natureParticleCount * 3);
+    for (let i = 0; i < natureParticleCount; i++) {
+      npPos[i * 3] = (Math.random() - 0.5) * 20;
+      npPos[i * 3 + 1] = Math.random() * 12;
+      npPos[i * 3 + 2] = (Math.random() - 0.5) * 22;
+    }
+    npGeo.setAttribute('position', new THREE.BufferAttribute(npPos, 3));
+    const npMat = new THREE.PointsMaterial({ color: 0xfbcfe8, size: 0.16, transparent: true, opacity: 0.8 });
+    const natureParticles = new THREE.Points(npGeo, npMat);
+    scene.add(natureParticles);
+
+    const comboLinksGroup = new THREE.Group();
+    scene.add(comboLinksGroup);
+
+    /**************************************************************
+     * 6. 낮/노을/밤 날씨 시스템 (Safari null 에러 완벽 방지)
+     **************************************************************/
+    const WEATHER_MODES = ['DAY', 'SUNSET', 'NIGHT'];
+    const WEATHER_LABELS = { DAY: '☀️ 낮', SUNSET: '🌅 노을', NIGHT: '🌌 밤' };
+
+    function applyWeather(mode) {
+      state.weather = mode;
+      document.body.classList.remove('weather-DAY', 'weather-SUNSET', 'weather-NIGHT');
+      document.body.classList.add(`weather-${mode}`);
+      setTxt('btn-title-weather', WEATHER_LABELS[mode]);
+      setTxt('btn-ingame-weather', WEATHER_LABELS[mode].split(' ')[0]);
+
+      if (mode === 'DAY') {
+        scene.fog.color.setHex(0x0f2942);
+        ambientLight.color.setHex(0xe0f2fe);
+        sunLight.color.setHex(0xfffbeb);
+        grassMat.color.setHex(0x15803d);
+        oceanMat.color.setHex(0x0369a1);
+        npMat.color.setHex(0xfbcfe8);
+      } else if (mode === 'SUNSET') {
+        scene.fog.color.setHex(0x3b1730);
+        ambientLight.color.setHex(0xfed7aa);
+        sunLight.color.setHex(0xf97316);
+        grassMat.color.setHex(0x3f6212);
+        oceanMat.color.setHex(0x4c1d95);
+        npMat.color.setHex(0xfdba74);
+      } else if (mode === 'NIGHT') {
+        scene.fog.color.setHex(0x050916);
+        ambientLight.color.setHex(0x818cf8);
+        sunLight.color.setHex(0x38bdf8);
+        grassMat.color.setHex(0x064e3b);
+        oceanMat.color.setHex(0x090d16);
+        npMat.color.setHex(0x6ee7b7);
+      }
+    }
+
+    function cycleWeather() {
+      const nextIdx = (WEATHER_MODES.indexOf(state.weather) + 1) % WEATHER_MODES.length;
+      applyWeather(WEATHER_MODES[nextIdx]);
+      playTone(540, 'sine', 0.1, 0.06);
+    }
+
+    /**************************************************************
+     * 7. 12종 영웅(보라색 오리 ‘덕키’ 포함) & 3D 스킨 테마 반영 모델 빌더
+     **************************************************************/
+    function buildTurretMesh(team = 'ALLY') {
+      const root = new THREE.Group();
+      const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.2 });
+      const orangeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.6, roughness: 0.25 });
+      const glowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.56, 0.16, 16), darkMetal);
+      base.position.y = 0.08;
+      root.add(base);
+
+      const rig = new THREE.Group();
+      root.add(rig);
+
+      const headPod = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.42, 0.58), orangeMat);
+      headPod.position.y = 0.55;
+      rig.add(headPod);
+
+      [-0.18, 0.18].forEach(bx => {
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.65, 10).rotateX(Math.PI / 2), darkMetal);
+        barrel.position.set(bx, 0.55, 0.38);
+        rig.add(barrel);
+      });
+
+      const radar = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.03, 8, 20).rotateX(Math.PI / 2), glowMat);
+      radar.position.set(0, 0.88, 0);
+      rig.add(radar);
+
+      root.rotation.y = team === 'ALLY' ? Math.PI : 0;
+      root.userData.rig = rig;
+      return root;
+    }
+
+    function buildHeroMesh(heroId, team = 'ALLY', isClone = false) {
+      if (heroId === 'turret') return buildTurretMesh(team);
+      const data = CHARACTERS[heroId] || CHARACTERS.ducky;
+      const root = new THREE.Group();
+
+      // 3D 스킨 테마 컬러 적용 (아군 및 쇼케이스 영웅)
+      const skinKey = (team === 'ALLY' && state.heroSkins[heroId]) ? state.heroSkins[heroId] : 'DEFAULT';
+      const skin = SKIN_THEMES[skinKey] || SKIN_THEMES.DEFAULT;
+
+      const primaryColor = isClone ? 0x5ac8fa : (skin.armor !== null ? skin.armor : data.color);
+      const accentGlow = isClone ? 0x5ac8fa : (skin.glow !== null ? skin.glow : data.color);
+      const teamColor = team === 'ALLY' ? 0x38bdf8 : 0xf43f5e;
+
+      const darkMetal = new THREE.MeshStandardMaterial({
+        color: isClone ? 0x38bdf8 : 0x1e293b,
+        metalness: 0.8,
+        roughness: 0.25,
+        transparent: isClone,
+        opacity: isClone ? 0.55 : 1.0
+      });
+      const armorMat = new THREE.MeshStandardMaterial({
+        color: primaryColor,
+        metalness: skin.metal,
+        roughness: 0.22,
+        emissive: isClone ? 0x0a84ff : (skinKey !== 'DEFAULT' ? accentGlow : 0x000000),
+        emissiveIntensity: isClone ? 0.6 : (skinKey !== 'DEFAULT' ? 0.22 : 0),
+        transparent: isClone,
+        opacity: isClone ? 0.62 : 1.0
+      });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.2 });
+      const glowMat = new THREE.MeshBasicMaterial({ color: accentGlow });
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.52, 0.58, 0.12, 24),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.2, emissive: teamColor, emissiveIntensity: 0.45 })
+      );
+      base.position.y = 0.08;
+      root.add(base);
+
+      const rig = new THREE.Group();
+      root.add(rig);
+
+      // ★ 신규 영웅 보라색 오리 ‘덕키(Ducky)’ 전용 귀여운 3D 오리 모델링!
+      if (heroId === 'ducky') {
+        const billMat = new THREE.MeshStandardMaterial({ color: 0xffbe0b, roughness: 0.3 });
+        // 오리 물갈퀴 발 2개
+        [-0.16, 0.16].forEach(fx => {
+          const foot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.28), billMat);
+          foot.position.set(fx, 0.18, 0.06);
+          rig.add(foot);
+        });
+        // 통통한 보라색 오리 몸통
+        const duckBody = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 18), armorMat);
+        duckBody.scale.set(1.0, 0.92, 1.15);
+        duckBody.position.set(0, 0.62, 0);
+        rig.add(duckBody);
+        // 귀여운 오리 꽁지깃
+        const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.28, 8), armorMat);
+        tail.position.set(0, 0.72, -0.45);
+        tail.rotation.x = -Math.PI / 3;
+        rig.add(tail);
+        // 동그란 보라색 오리 머리
+        const duckHead = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 18), armorMat);
+        duckHead.position.set(0, 1.18, 0.08);
+        rig.add(duckHead);
+        // 노란색 납작한 오리 주둥이(부리)
+        const beak = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.11, 0.32), billMat);
+        beak.position.set(0, 1.14, 0.38);
+        rig.add(beak);
+        // 뱅글뱅글 에임 나쁜 고글 눈
+        [-0.12, 0.12].forEach(ex => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+          eye.position.set(ex, 1.26, 0.33);
+          const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+          pupil.position.set(ex > 0 ? 0.02 : -0.02, 0.01, 0.05);
+          eye.add(pupil);
+          rig.add(eye);
+        });
+        // 머리 위 아군 구조용 노란 헬멧 링 & 양손 미니 우지 기관단총
+        constrescueHalo = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.035, 8, 20).rotateX(Math.PI / 2), glowMat);
+        rescueHalo.position.set(0, 1.56, 0.08);
+        rig.add(rescueHalo);
+        [-0.44, 0.44].forEach(gx => {
+          const smg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.46), darkMetal);
+          smg.position.set(gx, 0.72, 0.32);
+          rig.add(smg);
+        });
+
+        root.rotation.y = team === 'ALLY' ? Math.PI : 0;
+        root.userData.rig = rig;
+        return root;
+      }
+
+      // 일반 인간/메카형 영웅 공통 파츠
+      [-0.15, 0.15].forEach(lx => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.48, 10), darkMetal);
+        leg.position.set(lx, 0.34, 0);
+        rig.add(leg);
+      });
+
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.25, 0.62, 12), armorMat);
+      torso.position.y = 0.78;
+      rig.add(torso);
+
+      const chestCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), glowMat);
+      chestCore.position.set(0, 0.82, 0.28);
+      rig.add(chestCore);
+
+      [-0.36, 0.36].forEach(sx => {
+        const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), armorMat);
+        pauldron.scale.set(1.1, 0.85, 1.1);
+        pauldron.position.set(sx, 0.98, 0);
+        rig.add(pauldron);
+      });
+
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 18, 18),
+        new THREE.MeshStandardMaterial({ color: isClone ? 0xbae6fd : 0xf8fafc, roughness: 0.2 })
+      );
+      head.position.y = 1.32;
+      rig.add(head);
+
+      const visor = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.16), glowMat);
+      visor.position.set(0, 1.32, 0.2);
+      rig.add(visor);
+
+      if (heroId === 'hanseong') {
+        const bowGroup = new THREE.Group();
+        const bowArc = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.045, 12, 28, Math.PI * 1.2), glowMat);
+        bowArc.rotation.z = -Math.PI / 2;
+        bowGroup.add(bowArc);
+        bowGroup.position.set(0, 0.85, 0.38);
+        rig.add(bowGroup);
+      } else if (heroId === 'grappler') {
+        const clawArc = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.05, 10, 20, Math.PI * 1.35), glowMat);
+        clawArc.rotation.x = Math.PI / 2;
+        clawArc.position.set(-0.44, 0.82, 0.52);
+        rig.add(clawArc);
+      } else if (heroId === 'ragnarok') {
+        const shield = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.66, 0.66, 0.06, 6).rotateX(Math.PI / 2),
+          new THREE.MeshStandardMaterial({ color: accentGlow, transparent: true, opacity: 0.68 })
+        );
+        shield.position.set(-0.22, 0.82, 0.46);
+        rig.add(shield);
+        const hammerShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.95, 8), darkMetal);
+        hammerShaft.position.set(0.42, 0.85, 0.25);
+        const hammerHead = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.42), goldMat);
+        hammerHead.position.y = 0.45;
+        hammerShaft.add(hammerHead);
+        rig.add(hammerShaft);
+      } else if (heroId === 'falcan') {
+        const gear = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.04, 8, 16), glowMat);
+        gear.position.set(0, 1.15, -0.34);
+        rig.add(gear);
+      } else if (heroId === 'venom') {
+        [-0.4, 0.4].forEach(kx => {
+          const kunai = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.55, 4).rotateX(Math.PI / 2), glowMat);
+          kunai.position.set(kx, 0.78, 0.36);
+          rig.add(kunai);
+        });
+      } else if (heroId === 'mirage') {
+        const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.03, 10, 28), glowMat);
+        ring1.position.set(0, 0.95, 0);
+        ring1.rotation.x = Math.PI / 3;
+        rig.add(ring1);
+      } else if (heroId === 'zeno') {
+        [-0.38, 0.38].forEach(bx => {
+          const katana = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.78), glowMat);
+          katana.position.set(bx, 0.78, 0.34);
+          rig.add(katana);
+        });
+      } else if (heroId === 'lumina') {
+        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.035, 10, 24).rotateX(Math.PI / 2), goldMat);
+        halo.position.set(0, 1.68, 0);
+        rig.add(halo);
+      }
+
+      root.rotation.y = team === 'ALLY' ? Math.PI : 0;
+      root.userData.rig = rig;
+      return root;
+    }
+
+    /**************************************************************
+     * 8. 천공 3D 쇼케이스 제단 & 3x3 보드 타일
+     **************************************************************/
+    const SHOWCASE_POS = new THREE.Vector3(0, 6.5, 18.0);
+    const showcaseGroup = new THREE.Group();
+    showcaseGroup.position.copy(SHOWCASE_POS);
+    scene.add(showcaseGroup);
+
+    const pedMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.15, 1.45, 0.32, 32),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.75, roughness: 0.2, emissive: 0x0284c7, emissiveIntensity: 0.35 })
+    );
+    pedMesh.position.y = -0.16;
+    showcaseGroup.add(pedMesh);
+
+    const holoRing = new THREE.Mesh(
+      new THREE.TorusGeometry(1.32, 0.035, 12, 48).rotateX(Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x5ac8fa, transparent: true, opacity: 0.75 })
+    );
+    holoRing.position.y = 0.05;
+    showcaseGroup.add(holoRing);
+
+    const showcaseLight = new THREE.PointLight(0xffffff, 1.5, 10);
+    showcaseLight.position.set(1.5, 3.2, 2.5);
+    showcaseGroup.add(showcaseLight);
+
+    let showcaseHeroMesh = null;
+
+    function updateShowcaseHeroModel(heroId) {
+      if (showcaseHeroMesh) showcaseGroup.remove(showcaseHeroMesh);
+      showcaseHeroMesh = buildHeroMesh(heroId, 'ALLY');
+      showcaseHeroMesh.rotation.y = 0;
+      showcaseHeroMesh.scale.setScalar(1.35);
+      showcaseGroup.add(showcaseHeroMesh);
+    }
+
+    const COL_SPACING = 1.85;
+    const ROW_SPACING = 1.75;
+    const FRONT_Z = 1.55;
+
+    function getTileWorldPos(team, row, col) {
+      const x = (col - 1) * COL_SPACING;
+      const z = team === 'ALLY' ? FRONT_Z + row * ROW_SPACING : -(FRONT_Z + row * ROW_SPACING);
+      return new THREE.Vector3(x, 0, z);
+    }
+
+    const allyTiles = [];
+    const enemyTiles = [];
+
+    function buildBoardTiles() {
+      const tileGeo = new THREE.BoxGeometry(1.62, 0.14, 1.55);
+      const edgeGeo = new THREE.EdgesGeometry(tileGeo);
+
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const posA = getTileWorldPos('ALLY', r, c);
+          const tileA = new THREE.Mesh(tileGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.25, metalness: 0.6, emissive: 0x0284c7, emissiveIntensity: 0.22 }));
+          tileA.position.copy(posA);
+          tileA.receiveShadow = true;
+          tileA.userData = { team: 'ALLY', row: r, col: c };
+          tileA.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78 })));
+          scene.add(tileA);
+          allyTiles.push(tileA);
+
+          const posE = getTileWorldPos('ENEMY', r, c);
+          const tileE = new THREE.Mesh(tileGeo, new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.25, metalness: 0.6, emissive: 0xe11d48, emissiveIntensity: 0.22 }));
+          tileE.position.copy(posE);
+          tileE.receiveShadow = true;
+          tileE.userData = { team: 'ENEMY', row: r, col: c };
+          tileE.add(new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.78 })));
+          scene.add(tileE);
+          enemyTiles.push(tileE);
+        }
+      }
+    }
+    buildBoardTiles();
+
+    const hoverRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.55, 0.72, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x5ac8fa, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+    );
+    hoverRing.position.y = 0.1;
+    hoverRing.visible = false;
+    scene.add(hoverRing);
+
+    const laneGuideMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.5, 11.8).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x5ac8fa, transparent: true, opacity: 0.24, side: THREE.DoubleSide })
+    );
+    laneGuideMesh.position.y = 0.09;
+    laneGuideMesh.visible = false;
+    scene.add(laneGuideMesh);
+
+    function renderDualComboBoardLinks() {
+      while (comboLinksGroup.children.length > 0) comboLinksGroup.remove(comboLinksGroup.children[0]);
+      if (state.phase !== 'PREP') return;
+
+      const drawn = new Set();
+      state.allyFormation.forEach(slotA => {
+        const heroA = CHARACTERS[slotA.id];
+        if (!heroA || !heroA.comboPartner) return;
+        const slotB = state.allyFormation.find(s => s.id === heroA.comboPartner);
+        if (slotB) {
+          const key = [slotA.id, slotB.id].sort().join('-');
+          if (drawn.has(key)) return;
+          drawn.add(key);
+
+          const p1 = getTileWorldPos('ALLY', slotA.row, slotA.col);
+          const p2 = getTileWorldPos('ALLY', slotB.row, slotB.col);
+          const dist = p1.distanceTo(p2);
+          const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+          mid.y = 0.14;
+
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, dist), new THREE.MeshBasicMaterial({ color: 0xffd60a, transparent: true, opacity: 0.85 }));
+          bar.position.copy(mid);
+          bar.lookAt(new THREE.Vector3(p2.x, 0.14, p2.z));
+          comboLinksGroup.add(bar);
+        }
+      });
+    }
+
+    /**************************************************************
+     * 9. 전투 유닛 (딜량/힐량/탱킹량 통계 기록 & 보라색 오리 덕키 구조 스킬)
+     **************************************************************/
+    let units = [];
+    let projectiles = [];
+    let vfxList = [];
+
+    class BattleUnit {
+      constructor(heroId, team, row, col, scale = 1.0, customOpts = {}) {
+        this.heroId = heroId;
+        this.isSummon = !!customOpts.isSummon;
+        this.isClone = !!customOpts.isClone;
+        this.data = CHARACTERS[heroId] || { name: customOpts.customName || '메가 터렛', color: 0xf97316, hp: 650, atk: 68, range: 4.2, atkSpeed: 1.65 };
+        this.team = team;
+        this.row = row;
+        this.col = col;
+
+        this.maxHp = Math.round((customOpts.hp || this.data.hp) * scale);
+        this.hp = this.maxHp;
+        this.shield = 0;
+        this.atk = Math.round((customOpts.atk || this.data.atk) * scale);
+        this.range = (customOpts.range || this.data.range) * 1.85;
+        this.atkSpeed = customOpts.atkSpeed || this.data.atkSpeed;
+        this.mana = 0;
+        this.maxMana = 100;
+
+        // Apple 피트니스 링 MVP 통계용 누적 기록
+        this.stats = { dmgDealt: 0, healDone: 0, dmgTaken: 0 };
+
+        this.alive = true;
+        this.stunTimer = 0;
+        this.atkCooldown = 0.3 + Math.random() * 0.2;
+        this.idlePhase = Math.random() * 6.28;
+
+        this.mesh = buildHeroMesh(heroId, team, this.isClone);
+        const pos = customOpts.worldPos ? customOpts.worldPos.clone() : getTileWorldPos(team, row, col);
+        this.mesh.position.copy(pos);
+        this.targetPos = pos.clone();
+        this.velocity = new THREE.Vector3();
+        this.scaleBounce = 1.38;
+        this.mesh.userData.unit = this;
+        scene.add(this.mesh);
+
+        this.hudEl = document.createElement('div');
+        this.hudEl.className = 'unit-hud';
+        const displayName = customOpts.customName || this.data.name;
+        this.hudEl.innerHTML = `
+          <div class="unit-hud-name" style="color:${team === 'ALLY' ? '#bae6fd' : '#fecdd3'}">${displayName}</div>
+          <div class="hp-bar"><div class="hp-fill ${team === 'ENEMY' ? 'enemy' : ''}" style="width:100%"></div></div>
+          <div class="mp-bar"><div class="mp-fill" style="width:0%"></div></div>
+        `;
+        overlayLayer.appendChild(this.hudEl);
+        this.hpFill = this.hudEl.querySelector('.hp-fill');
+        this.mpFill = this.hudEl.querySelector('.mp-fill');
+      }
+
+      updateHUD() {
+        if (!this.alive || state.screenMode !== 'GAME') {
+          this.hudEl.style.opacity = '0';
+          return;
+        }
+        this.hudEl.style.opacity = '1';
+        const wp = this.mesh.position.clone();
+        wp.y += 1.95;
+        wp.project(camera);
+        const x = (wp.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-(wp.y * 0.5) + 0.5) * window.innerHeight;
+        this.hudEl.style.left = `${x}px`;
+        this.hudEl.style.top = `${y}px`;
+
+        this.hpFill.style.width = `${Math.max(0, Math.min(100, (this.hp / this.maxHp) * 100))}%`;
+        this.mpFill.style.width = `${Math.max(0, Math.min(100, (this.mana / this.maxMana) * 100))}%`;
+      }
+
+      takeDamage(amount, tag = '', attacker = null) {
+        if (!this.alive) return;
+        let dmg = Math.round(amount);
+        this.stats.dmgTaken += dmg;
+        if (attacker) attacker.stats.dmgDealt += dmg;
+
+        if (this.shield > 0) {
+          const abs = Math.min(this.shield, dmg);
+          this.shield -= abs;
+          dmg -= abs;
+        }
+        this.hp -= dmg;
+        this.mana = Math.min(this.maxMana, this.mana + 10);
+        this.scaleBounce = 1.25;
+
+        spawnFloatText(this.mesh.position, tag ? `${tag} -${dmg}` : `-${dmg}`, this.team === 'ALLY' ? '#ff6961' : '#ffd60a');
+
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.alive = false;
+          this.mesh.visible = false;
+          spawnRingVFX(this.mesh.position, this.data.color, 1.5);
+
+          // ★ 마지막 적 처형 시 피니셔 연출 (흑백 반전 임팩트 플래시 + 슬로우 줌인!)
+          const remainingEnemies = units.filter(u => u.alive && u.team !== this.team);
+          if (remainingEnemies.length === 0 && settings.actionCam && attacker) {
+            document.body.classList.add('finisher-flash');
+            setTimeout(() => document.body.classList.remove('finisher-flash'), 340);
+            triggerActionCam(attacker, `💥 FINAL BLOW FINISHER · ${attacker.data.name}!`, '처형 피니셔 연출 · LAST ENEMY DEFEATED', 0.95);
+          }
+
+          if (this.isClone) {
+            spawnFloatText(this.mesh.position, '환영 자폭!!', '#e879f9');
+            units.forEach(e => {
+              if (e.alive && e.team !== this.team && e.mesh.position.distanceTo(this.mesh.position) < 2.6) {
+                e.takeDamage(180, '분신 폭발!', this);
+              }
+            });
+          }
+          playTone(150, 'sawtooth', 0.18, 0.08);
+        }
+      }
+
+      heal(amount, healer = null) {
+        if (!this.alive) return;
+        const val = Math.round(amount);
+        if (healer) healer.stats.healDone += val;
+        this.hp = Math.min(this.maxHp, this.hp + val);
+        spawnFloatText(this.mesh.position, `+${val}`, '#30d158');
+      }
+
+      destroy() {
+        scene.remove(this.mesh);
+        if (this.hudEl && this.hudEl.parentNode) this.hudEl.parentNode.removeChild(this.hudEl);
+      }
+    }
+
+    function spawnFloatText(worldPos, text, color = '#fff') {
+      if (state.screenMode !== 'GAME') return;
+      const p = worldPos.clone();
+      p.y += 1.55;
+      p.project(camera);
+      const x = (p.x * 0.5 + 0.5) * window.innerWidth + (Math.random() - 0.5) * 24;
+      const y = (-(p.y * 0.5) + 0.5) * window.innerHeight;
+      const el = document.createElement('div');
+      el.className = 'float-dmg';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.color = color;
+      el.textContent = text;
+      overlayLayer.appendChild(el);
+      setTimeout(() => el.remove(), 850);
+    }
+
+    function spawnRingVFX(pos, color, maxScale = 2.0, duration = 0.42) {
+      const mesh = new THREE.Mesh(
+        new THREE.RingGeometry(0.15, 0.34, 28).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+      );
+      mesh.position.copy(pos);
+      mesh.position.y = 0.12;
+      scene.add(mesh);
+      vfxList.push({
+        mesh,
+        elapsed: 0,
+        duration,
+        update(dt) {
+          this.elapsed += dt;
+          const t = Math.min(1, this.elapsed / this.duration);
+          const s = 1 + t * maxScale * 3.0;
+          this.mesh.scale.set(s, s, s);
+          this.mesh.material.opacity = 0.9 * (1 - t);
+          return this.elapsed < this.duration;
+        }
+      });
+    }
+
+    // ★ 보라색 오리 ‘덕키’ 전용 궁극기: 체력이 가장 적은 아군을 안전한 뒷줄로 끌어당겨 구조!
+    function spawnDuckyRescuePull(caster) {
+      const allies = units.filter(a => a.alive && a.team === caster.team && a !== caster);
+      if (allies.length === 0) {
+        caster.heal(420, caster);
+        return;
+      }
+      // 체력이 가장 적은 아군 탐색
+      allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+      const targetAlly = allies[0];
+
+      const startAllyPos = targetAlly.mesh.position.clone();
+      // 덕키 옆 안전한 후열 좌표 계산
+      const safeX = caster.mesh.position.x > 0 ? caster.mesh.position.x - 1.55 : caster.mesh.position.x + 1.55;
+      const safeZ = caster.team === 'ALLY' ? 4.8 : -4.8;
+      const safeDest = new THREE.Vector3(Math.max(-2.2, Math.min(2.2, safeX)), 0, safeZ);
+
+      const ropeGroup = new THREE.Group();
+      scene.add(ropeGroup);
+      const linkCount = 14;
+      const links = [];
+      for (let i = 0; i < linkCount; i++) {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), new THREE.MeshBasicMaterial({ color: 0xa855f7 }));
+        ropeGroup.add(m);
+        links.push(m);
+      }
+
+      playTone(580, 'triangle', 0.4, 0.12, 880);
+      spawnFloatText(caster.mesh.position, '꽉 잡아! 오리 구조대!!', '#e9d5ff');
+
+      vfxList.push({
+        mesh: ropeGroup,
+        elapsed: 0,
+        duration: 0.48,
+        healed: false,
+        update(dt) {
+          this.elapsed += dt;
+          const t = Math.min(1, this.elapsed / this.duration);
+          const curPos = new THREE.Vector3().lerpVectors(startAllyPos, safeDest, t);
+          if (targetAlly.alive) {
+            targetAlly.mesh.position.copy(curPos);
+            targetAlly.mesh.position.y = Math.sin(t * Math.PI) * 1.2;
+          }
+          links.forEach((lk, idx) => {
+            lk.position.lerpVectors(caster.mesh.position, curPos, (idx + 1) / linkCount);
+            lk.position.y = 0.85;
+          });
+          if (t >= 1 && !this.healed) {
+            this.healed = true;
+            if (targetAlly.alive) {
+              targetAlly.mesh.position.y = 0;
+              targetAlly.heal(420, caster);
+              targetAlly.shield += 260;
+              spawnFloatText(targetAlly.mesh.position, '긴급 구조 완료! +420', '#30d158');
+              spawnRingVFX(targetAlly.mesh.position, 0xa855f7, 2.0, 0.45);
+            }
+          }
+          return this.elapsed < this.duration;
+        }
+      });
+    }
+
+    function spawnVerticalDragonWave(caster, colIdx, team, dmg, colorHex = 0x38bdf8) {
+      const x = (colIdx - 1) * COL_SPACING;
+      const startZ = team === 'ALLY' ? 5.4 : -5.4;
+      const dirZ = team === 'ALLY' ? -1 : 1;
+
+      const dragonGroup = new THREE.Group();
+      dragonGroup.position.set(x, 0.95, startZ);
+
+      const segCount = 24;
+      const segments = [];
+      for (let i = 0; i < segCount; i++) {
+        const r = i === 0 ? 0.34 : Math.max(0.12, 0.28 * (1 - i / segCount));
+        const geo = new THREE.SphereGeometry(r, 10, 10);
+        const s1 = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.94 }));
+        const s2 = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.9 }));
+        dragonGroup.add(s1, s2);
+        segments.push({ s1, s2, idx: i });
+      }
+
+      const lanePlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.55, 13.0).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.38, side: THREE.DoubleSide })
+      );
+      lanePlane.position.set(x, 0.08, 0);
+      scene.add(lanePlane);
+      scene.add(dragonGroup);
+
+      const hitUnits = new Set();
+      state.cameraShake = 0.35;
+      playTone(210, 'triangle', 0.5, 0.12);
+
+      vfxList.push({
+        mesh: dragonGroup,
+        elapsed: 0,
+        duration: 0.95,
+        update(dt) {
+          this.elapsed += dt;
+          dragonGroup.position.z += dirZ * dt * 13.8;
+          segments.forEach(({ s1, s2, idx }) => {
+            const offsetZ = -dirZ * idx * 0.24;
+            const wave = this.elapsed * 15 - idx * 0.45;
+            s1.position.set(Math.cos(wave) * 0.4, Math.sin(wave) * 0.4, offsetZ);
+            s2.position.set(-Math.cos(wave) * 0.4, -Math.sin(wave) * 0.4, offsetZ);
+          });
+          units.forEach(u => {
+            if (u.alive && u.team !== team && !hitUnits.has(u)) {
+              if (Math.abs(u.mesh.position.x - x) < 1.08 && Math.abs(u.mesh.position.z - dragonGroup.position.z) < 1.15) {
+                hitUnits.add(u);
+                u.takeDamage(dmg, '용의 일격!', caster);
+                u.mesh.position.z += dirZ * 0.65;
+              }
+            }
+          });
+          lanePlane.material.opacity = Math.max(0, 0.38 * (1 - this.elapsed / this.duration));
+          if (this.elapsed >= this.duration) {
+            scene.remove(lanePlane);
+            return false;
+          }
+          return true;
+        }
+      });
+    }
+
+    function spawnGrapplerChainHook(caster, target, dmg, stunSec, pullToPos = null) {
+      const chainGroup = new THREE.Group();
+      scene.add(chainGroup);
+      const linkCount = 15;
+      const links = [];
+      for (let i = 0; i < linkCount; i++) {
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff9f0a }));
+        chainGroup.add(m);
+        links.push(m);
+      }
+
+      const startEnemyPos = target.mesh.position.clone();
+      const pullDestPos = pullToPos ? pullToPos.clone() : caster.mesh.position.clone().add(new THREE.Vector3(0, 0, caster.team === 'ALLY' ? -1.15 : 1.15));
+
+      playTone(180, 'sawtooth', 0.42, 0.11, 520);
+      spawnFloatText(caster.mesh.position, '강철 사슬 포획!!', '#ff9f0a');
+
+      vfxList.push({
+        mesh: chainGroup,
+        elapsed: 0,
+        duration: 0.5,
+        impactDone: false,
+        update(dt) {
+          this.elapsed += dt;
+          const t = Math.min(1, this.elapsed / this.duration);
+          let hookTipPos;
+          if (t < 0.35) {
+            hookTipPos = new THREE.Vector3().lerpVectors(caster.mesh.position, startEnemyPos, t / 0.35);
+          } else {
+            const pullT = (t - 0.35) / 0.65;
+            hookTipPos = new THREE.Vector3().lerpVectors(startEnemyPos, pullDestPos, pullT);
+            if (target.alive) target.mesh.position.copy(hookTipPos);
+            if (!this.impactDone && pullT > 0.85) {
+              this.impactDone = true;
+              if (target.alive) {
+                target.takeDamage(dmg, '사슬 그랩!', caster);
+                target.stunTimer = Math.max(target.stunTimer, stunSec);
+                spawnRingVFX(target.mesh.position, 0xff9f0a, 1.8, 0.38);
+              }
+            }
+          }
+          links.forEach((link, idx) => {
+            link.position.lerpVectors(caster.mesh.position, hookTipPos, (idx + 1) / linkCount);
+            link.position.y = 0.85;
+          });
+          return this.elapsed < this.duration;
+        }
+      });
+    }
+
+    function triggerActionCam(unit, titleText, subText, duration = 0.85) {
+      if (!settings.actionCam || !unit) return;
+      state.actionCam.active = true;
+      state.actionCam.unit = unit;
+      state.actionCam.timer = duration;
+      state.actionCam.timeScale = 0.18;
+
+      setTxt('cinematic-top-text', titleText);
+      setTxt('cinematic-bot-text', subText);
+      $('cinematic-bars').classList.add('active');
+    }
+
+    function executeSingleHeroUltimateAction(caster, isComboPart = false) {
+      const heroId = caster.heroId;
+      const allies = units.filter(u => u.alive && u.team === caster.team);
+      const enemies = units.filter(u => u.alive && u.team !== caster.team);
+      caster.scaleBounce = 1.48;
+
+      if (heroId === 'ducky') {
+        spawnDuckyRescuePull(caster);
+        return;
+      }
+      if (enemies.length === 0) return;
+
+      if (heroId === 'hanseong') {
+        const colIdx = Math.max(0, Math.min(2, Math.round(caster.mesh.position.x / COL_SPACING + 1)));
+        spawnVerticalDragonWave(caster, colIdx, caster.team, 340, 0x38bdf8);
+        if (isComboPart) {
+          spawnVerticalDragonWave(caster, colIdx === 1 ? 0 : 1, caster.team, 280, 0xffd60a);
+        }
+      } else if (heroId === 'grappler') {
+        let farthest = enemies[0];
+        let maxD = -1;
+        enemies.forEach(e => {
+          const d = caster.mesh.position.distanceTo(e.mesh.position);
+          if (d > maxD) { maxD = d; farthest = e; }
+        });
+        const hanseongUnit = allies.find(a => a.heroId === 'hanseong');
+        const dest = (isComboPart && hanseongUnit) ? new THREE.Vector3(hanseongUnit.mesh.position.x, 0, 0.2) : null;
+        spawnGrapplerChainHook(caster, farthest, 300, 2.5, dest);
+
+      } else if (heroId === 'ragnarok') {
+        spawnFloatText(caster.mesh.position, '대지분쇄 강타!!', '#fbbf24');
+        spawnRingVFX(caster.mesh.position, 0xfbbf24, 3.6, 0.52);
+        playTone(110, 'sawtooth', 0.35, 0.12);
+        enemies.forEach(e => {
+          e.takeDamage(260, '대지분쇄!', caster);
+          e.stunTimer = Math.max(e.stunTimer, 3.0);
+          e.mesh.position.y = 0.85;
+          setTimeout(() => { if (e.alive) e.mesh.position.y = 0; }, 320);
+        });
+      } else if (heroId === 'falcan') {
+        const cnt = isComboPart ? 2 : 1;
+        for (let i = 0; i < cnt; i++) {
+          const sp = new THREE.Vector3(Math.max(-2.2, Math.min(2.2, caster.mesh.position.x + (i === 0 ? 1.3 : -1.3))), 0, Math.max(1.2, caster.mesh.position.z - 1.1));
+          units.push(new BattleUnit('turret', caster.team, 0, 1, 1.0, { isSummon: true, customName: '🤖메가 터렛', worldPos: sp, hp: 680, atk: 72, range: 4.5, atkSpeed: 1.75 }));
+          spawnRingVFX(sp, 0xf97316, 1.8, 0.4);
+        }
+      } else if (heroId === 'mirage') {
+        for (let i = 0; i < 2; i++) {
+          const sp = new THREE.Vector3(i === 0 ? -1.4 : 1.4, 0, caster.team === 'ALLY' ? 1.2 : -1.2);
+          units.push(new BattleUnit('mirage', caster.team, 0, i === 0 ? 0 : 2, 1.0, { isSummon: true, isClone: true, customName: '✨환영 분신', worldPos: sp, hp: 520, atk: 75, range: 1.5, atkSpeed: 1.35 }));
+          spawnRingVFX(sp, 0xe879f9, 1.6, 0.4);
+        }
+      } else if (heroId === 'venom') {
+        const targetPos = new THREE.Vector3(0, 0, caster.team === 'ALLY' ? -2.8 : 2.8);
+        caster.mesh.position.copy(targetPos);
+        spawnRingVFX(targetPos, 0x10b981, 3.4, 0.5);
+        enemies.forEach(e => e.takeDamage(310, '맹독 수리검 폭우!', caster));
+      } else if (heroId === 'zeno') {
+        let weakest = enemies[0];
+        enemies.forEach(e => { if (e.hp < weakest.hp) weakest = e; });
+        caster.mesh.position.set(weakest.mesh.position.x, 0, weakest.mesh.position.z - 0.75);
+        spawnRingVFX(weakest.mesh.position, 0xa855f7, 2.4, 0.42);
+        weakest.takeDamage(420, '배후 일섬 처형!', caster);
+      } else if (heroId === 'chrono') {
+        const originPos = caster.mesh.position.clone();
+        const target = enemies[0];
+        caster.mesh.position.set(target.mesh.position.x, 0, target.mesh.position.z + 0.6);
+        spawnRingVFX(target.mesh.position, 0xfacc15, 2.8, 0.48);
+        enemies.forEach(e => e.takeDamage(330, '시한폭탄 폭발!', caster));
+        setTimeout(() => { if (caster.alive) caster.mesh.position.copy(originPos); }, 280);
+      } else if (heroId === 'glacia') {
+        enemies.forEach(e => {
+          e.stunTimer = Math.max(e.stunTimer, 3.2);
+          e.takeDamage(230, '영구동토 빙결!', caster);
+          spawnRingVFX(e.mesh.position, 0x22d3ee, 1.9, 0.48);
+        });
+      } else if (heroId === 'arc') {
+        enemies.forEach(e => {
+          spawnRingVFX(e.mesh.position, 0x60a5fa, 1.8, 0.42);
+          e.takeDamage(280, '뇌전 기둥!', caster);
+        });
+      } else if (heroId === 'lumina') {
+        const dead = units.find(u => !u.alive && u.team === 'ALLY' && !u.isSummon);
+        if (dead) {
+          dead.alive = true;
+          dead.hp = Math.round(dead.maxHp * 0.75);
+          dead.mesh.visible = true;
+          dead.scaleBounce = 1.52;
+          spawnFloatText(dead.mesh.position, '발키리 부활!!', '#30d158');
+        }
+        allies.forEach(a => a.heal(380, caster));
+      }
+    }
+
+    function triggerTurnUltimate(heroId) {
+      if (state.ultUsedThisTurn) {
+        showToast('이번 턴 궁극기 사용 완료', '궁극기는 매 턴 모든 영웅 합쳐서 1번만 발동 가능합니다.', 1200);
+        return;
+      }
+      const caster = units.find(u => u.team === 'ALLY' && u.heroId === heroId && u.alive);
+      if (!caster) return;
+
+      if (state.phase === 'PREP') startBattle();
+      if (state.phase !== 'BATTLE') return;
+
+      state.ultUsedThisTurn = true;
+      state.cameraShake = 0.4;
+
+      const heroData = CHARACTERS[heroId];
+      const partnerUnit = heroData.comboPartner
+        ? units.find(u => u.team === 'ALLY' && u.heroId === heroData.comboPartner && u.alive)
+        : null;
+
+      if (partnerUnit) {
+        playTone(520, 'triangle', 0.55, 0.14, 880);
+        triggerActionCam(caster, `⚡ DUAL COMBO: ${caster.data.name} × ${partnerUnit.data.name} ⚡`, heroData.comboName, 1.1);
+        showToast(`⚡ 듀얼 콤보: ${heroData.comboName}!`, `${caster.data.name} & ${partnerUnit.data.name} 합동 궁극기!`, 1700);
+        executeSingleHeroUltimateAction(caster, true);
+        setTimeout(() => { if (partnerUnit.alive) executeSingleHeroUltimateAction(partnerUnit, true); }, 220);
+      } else {
+        playTone(620, 'triangle', 0.42, 0.12, 240);
+        triggerActionCam(caster, `★ ${caster.data.name} 궁극기 · ${heroData.ultName} ★`, heroData.ultShort, 0.88);
+        showToast(`★ ${heroData.ultName}`, heroData.ultShort, 1500);
+        executeSingleHeroUltimateAction(caster, false);
+      }
+      updateUI();
+    }
+
+    function spawnUnitsOnBoard() {
+      units.forEach(u => u.destroy());
+      units = [];
+      projectiles.forEach(p => scene.remove(p.mesh));
+      projectiles = [];
+      vfxList.forEach(v => scene.remove(v.mesh));
+      vfxList = [];
+
+      const st = STAGES[state.stageIdx];
+      state.allyFormation.forEach(slot => {
+        units.push(new BattleUnit(slot.id, 'ALLY', slot.row, slot.col, 1.0));
+      });
+      st.enemies.forEach(slot => {
+        units.push(new BattleUnit(slot.id, 'ENEMY', slot.row, slot.col, st.scale));
+      });
+
+      renderDualComboBoardLinks();
+      updateUI();
+    }
+
+    /**************************************************************
+     * 10. 3D 드래그 앤 드롭 & 쇼케이스 회전
+     **************************************************************/
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const dragPoint = new THREE.Vector3();
+
+    let draggedUnit = null;
+    let hoveredTile = null;
+    let isRotatingShowcase = false;
+    let prevPointerX = 0;
+
+    function syncPointer(e) {
+      const pt = e.touches ? e.touches[0] : e;
+      pointer.x = (pt.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(pt.clientY / window.innerHeight) * 2 + 1;
+      return pt.clientX;
+    }
+
+    function onDown(e) {
+      ensureAudio();
+      const cx = syncPointer(e);
+
+      if (state.screenMode === 'TITLE' || state.screenMode === 'CODEX') {
+        if (!e.target.closest('button, input, .codex-info-sheet, .title-bottom-dock, .profile-widget, .modal-backdrop')) {
+          isRotatingShowcase = true;
+          prevPointerX = cx;
+        }
+        return;
+      }
+
+      if (state.screenMode !== 'GAME' || state.phase !== 'PREP') return;
+      if (e.target.closest('.interactive')) return;
+
+      raycaster.setFromCamera(pointer, camera);
+      const allyMeshes = units.filter(u => u.team === 'ALLY' && !u.isSummon).map(u => u.mesh);
+      const hits = raycaster.intersectObjects(allyMeshes, true);
+
+      if (hits.length > 0) {
+        let obj = hits[0].object;
+        while (obj.parent && !obj.userData.unit) obj = obj.parent;
+        if (obj.userData.unit && obj.userData.unit.team === 'ALLY') {
+          draggedUnit = obj.userData.unit;
+          draggedUnit.scaleBounce = 1.36;
+          state.inspectedHero = draggedUnit.heroId;
+          updateUI();
+          playTone(520, 'sine', 0.07, 0.06);
+        }
+      }
+    }
+
+    function onMove(e) {
+      const cx = syncPointer(e);
+      if (isRotatingShowcase) {
+        state.showcaseRotY += (cx - prevPointerX) * 0.012;
+        prevPointerX = cx;
+        return;
+      }
+
+      if (!draggedUnit || state.phase !== 'PREP') return;
+      raycaster.setFromCamera(pointer, camera);
+
+      if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+        draggedUnit.targetPos.set(dragPoint.x, 0.75, dragPoint.z);
+
+        let bestTile = null;
+        let minDist = 1.25;
+        allyTiles.forEach(t => {
+          const d = Math.hypot(dragPoint.x - t.position.x, dragPoint.z - t.position.z);
+          if (d < minDist) { minDist = d; bestTile = t; }
+        });
+
+        hoveredTile = bestTile;
+        if (hoveredTile) {
+          hoverRing.visible = true;
+          hoverRing.position.set(hoveredTile.position.x, 0.1, hoveredTile.position.z);
+          if (draggedUnit.heroId === 'hanseong') {
+            laneGuideMesh.visible = true;
+            laneGuideMesh.position.x = hoveredTile.position.x;
+          } else {
+            laneGuideMesh.visible = false;
+          }
+        } else {
+          hoverRing.visible = false;
+          laneGuideMesh.visible = false;
+        }
+      }
+    }
+
+    function onUp() {
+      isRotatingShowcase = false;
+      if (!draggedUnit) return;
+      if (hoveredTile) {
+        const nr = hoveredTile.userData.row;
+        const nc = hoveredTile.userData.col;
+        const or = draggedUnit.row;
+        const oc = draggedUnit.col;
+
+        const other = units.find(u => u.team === 'ALLY' && u !== draggedUnit && u.row === nr && u.col === nc);
+        if (other) {
+          other.row = or;
+          other.col = oc;
+          other.targetPos.copy(getTileWorldPos('ALLY', or, oc));
+          other.scaleBounce = 1.28;
+        }
+
+        draggedUnit.row = nr;
+        draggedUnit.col = nc;
+        state.allyFormation = units.filter(u => u.team === 'ALLY' && !u.isSummon).map(u => ({ id: u.heroId, row: u.row, col: u.col }));
+        spawnRingVFX(getTileWorldPos('ALLY', nr, nc), draggedUnit.data.color, 1.0, 0.28);
+        renderDualComboBoardLinks();
+        playTone(680, 'sine', 0.09, 0.07);
+      }
+
+      draggedUnit.targetPos.copy(getTileWorldPos('ALLY', draggedUnit.row, draggedUnit.col));
+      draggedUnit.scaleBounce = 1.38;
+      draggedUnit = null;
+      hoveredTile = null;
+      hoverRing.visible = false;
+      laneGuideMesh.visible = false;
+    }
+
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchstart', onDown, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onUp);
+
+    /**************************************************************
+     * 11. MVP 클로즈업 & Apple 피트니스 링 통계 모달
+     **************************************************************/
+    function showMvpFitnessReport(allyWonRound, onContinue) {
+      const allyUnits = units.filter(u => u.team === 'ALLY' && !u.isSummon);
+      if (allyUnits.length === 0) {
+        onContinue();
+        return;
+      }
+
+      // MVP 선정 (딜량 + 힐량 + 탱킹량 합산 최고점)
+      allyUnits.sort((a, b) =>
+        (b.stats.dmgDealt + b.stats.healDone * 1.2 + b.stats.dmgTaken * 0.6) -
+        (a.stats.dmgDealt + a.stats.healDone * 1.2 + a.stats.dmgTaken * 0.6)
+      );
+      const mvp = allyUnits[0];
+      state.mvpUnit = mvp;
+      mvp.scaleBounce = 1.48;
+
+      const maxDmg = Math.max(100, ...allyUnits.map(u => u.stats.dmgDealt));
+      const maxHeal = Math.max(100, ...allyUnits.map(u => u.stats.healDone));
+      const maxTank = Math.max(100, ...allyUnits.map(u => u.stats.dmgTaken));
+
+      const r1 = Math.min(1, mvp.stats.dmgDealt / maxDmg) * 238;
+      const r2 = Math.min(1, (mvp.stats.healDone + 40) / maxHeal) * 188;
+      const r3 = Math.min(1, mvp.stats.dmgTaken / maxTank) * 138;
+
+      setTxt('mvp-header-title', allyWonRound ? `🏆 ROUND ${state.round} VICTORY · MVP` : `📊 ROUND ${state.round} 전투 리포트`);
+      setTxt('mvp-header-sub', `MVP 영웅 [${mvp.data.name}] 클로즈업 & Apple 활동 링 분석`);
+
+      $('mvp-summary-box').innerHTML = `
+        <svg class="fitness-rings-svg" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,69,58,0.2)" stroke-width="8"/>
+          <circle cx="50" cy="50" r="38" fill="none" stroke="#ff453a" stroke-width="8" stroke-linecap="round" stroke-dasharray="${r1} 240"/>
+          <circle cx="50" cy="50" r="29" fill="none" stroke="rgba(48,209,88,0.2)" stroke-width="8"/>
+          <circle cx="50" cy="50" r="29" fill="none" stroke="#30d158" stroke-width="8" stroke-linecap="round" stroke-dasharray="${r2} 190"/>
+          <circle cx="50" cy="50" r="20" fill="none" stroke="rgba(90,200,250,0.2)" stroke-width="8"/>
+          <circle cx="50" cy="50" r="20" fill="none" stroke="#5ac8fa" stroke-width="8" stroke-linecap="round" stroke-dasharray="${r3} 140"/>
+        </svg>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div style="font-size:16px; font-weight:900; color:${mvp.data.hex};">★ MVP: ${mvp.data.fullName}</div>
+          <div style="font-size:11.5px; color:#ff6961; font-weight:800;">🔴 가한 피해(ATK): ${mvp.stats.dmgDealt}</div>
+          <div style="font-size:11.5px; color:#30d158; font-weight:800;">🟢 구조·치유(HEAL): ${mvp.stats.healDone}</div>
+          <div style="font-size:11.5px; color:#5ac8fa; font-weight:800;">🔵 받은 피해(TANK): ${mvp.stats.dmgTaken}</div>
+        </div>
+      `;
+
+      $('mvp-bars-list').innerHTML = allyUnits.map(u => `
+        <div style="padding:7px 10px; border-radius:11px; background:rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:11px;">
+          <span style="font-weight:800; color:${u.data.hex};">${u.data.name}</span>
+          <span>딜 <b>${u.stats.dmgDealt}</b> · 힐 <b>${u.stats.healDone}</b> · 탱킹 <b>${u.stats.dmgTaken}</b></span>
+        </div>
+      `).join('');
+
+      state.pendingNextStep = onContinue;
+      $('mvp-modal').classList.add('open');
+    }
+
+    $('btn-mvp-continue').onclick = () => {
+      $('mvp-modal').classList.remove('open');
+      state.mvpUnit = null;
+      if (state.pendingNextStep) {
+        const fn = state.pendingNextStep;
+        state.pendingNextStep = null;
+        fn();
+      }
+    };
+
+    /**************************************************************
+     * 12. 튜토리얼 / 도감·스킨 스튜디오 / UI 업데이트
+     **************************************************************/
+    function openTutorialModal() {
+      state.tutorialStep = 0;
+      renderTutorialStep();
+      $('tutorial-modal').classList.add('open');
+    }
+
+    function renderTutorialStep() {
+      const stepData = TUTORIAL_STEPS[state.tutorialStep];
+      setTxt('tut-step-badge', stepData.badge);
+      setTxt('tut-title', stepData.title);
+      setTxt('tut-desc', stepData.desc);
+      $('tut-visual-stage').innerHTML = stepData.html;
+
+      const prevBtn = $('btn-tut-prev');
+      const nextBtn = $('btn-tut-next');
+      prevBtn.disabled = state.tutorialStep === 0;
+      prevBtn.style.opacity = state.tutorialStep === 0 ? '0.35' : '1';
+      nextBtn.textContent = state.tutorialStep === TUTORIAL_STEPS.length - 1 ? '시작하기 ✓' : '다음 ▶';
+    }
+
+    $('btn-tut-prev').onclick = () => {
+      if (state.tutorialStep > 0) { state.tutorialStep--; renderTutorialStep(); }
+    };
+    $('btn-tut-next').onclick = () => {
+      if (state.tutorialStep < TUTORIAL_STEPS.length - 1) {
+        state.tutorialStep++;
+        renderTutorialStep();
+      } else {
+        $('tutorial-modal').classList.remove('open');
+      }
+    };
+    $('btn-tut-skip').onclick = () => $('tutorial-modal').classList.remove('open');
+    $('btn-title-tutorial').onclick = openTutorialModal;
+    $('btn-ingame-tutorial').onclick = openTutorialModal;
+
+    function renderGuideModal() {
+      const box = $('guide-body-container');
+      document.querySelectorAll('#guide-tabs .rf-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.gtab === state.guideTab);
+      });
+
+      if (state.guideTab === 'combos') {
+        const pairs = [['ducky', 'ragnarok'], ['hanseong', 'grappler'], ['falcan', 'mirage'], ['venom', 'zeno'], ['chrono', 'glacia'], ['arc', 'lumina']];
+        box.innerHTML = pairs.map(([a, b]) => {
+          const ha = CHARACTERS[a];
+          const hb = CHARACTERS[b];
+          return `
+            <div class="c-skill-item" style="border-left:3px solid var(--purple);">
+              <div style="font-size:12.5px; font-weight:900; color:#fff;">${ha.name} × ${hb.name} · <span style="color:var(--gold);">${ha.comboName}</span></div>
+              <div style="font-size:11px; color:#cbd5e1; margin-top:3px;">${ha.comboDesc}</div>
+            </div>
+          `;
+        }).join('');
+      } else if (state.guideTab === 'roles') {
+        box.innerHTML = ['TANK', 'RANGED', 'ASSASSIN', 'SUMMONER', 'SUPPORT'].map(rKey => {
+          const rm = ROLE_META[rKey];
+          const names = Object.values(CHARACTERS).filter(h => h.roleId === rKey).map(h => h.name).join(', ');
+          return `
+            <div class="c-skill-item">
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:13px; font-weight:900; color:var(--cyan);">${rm.badge}</span>
+                <span style="font-size:10px; color:var(--gold); font-weight:800;">${rm.posTip}</span>
+              </div>
+              <div style="font-size:11px; color:#e2e8f0;">${rm.desc}</div>
+              <div style="font-size:10.5px; color:var(--sub); margin-top:4px;">영웅: ${names}</div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        box.innerHTML = RECOMMENDED_DECKS.map((deck, idx) => `
+          <div class="c-skill-item" style="border-left:3px solid var(--cyan);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12.5px; font-weight:900;">${deck.name}</span>
+              <button class="vision-pill primary" onclick="applyRecommendedDeck(${idx})" style="padding:4px 10px; font-size:10px;">자동 배치 ✓</button>
+            </div>
+            <div style="font-size:10px; color:var(--gold); font-weight:800; margin:3px 0;">${deck.synergyText}</div>
+            <div style="font-size:11px; color:#cbd5e1;">${deck.desc}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    window.applyRecommendedDeck = function(deckIdx) {
+      if (state.phase !== 'PREP') return;
+      const deck = RECOMMENDED_DECKS[deckIdx];
+      const maxA = STAGES[state.stageIdx].maxAlly;
+      state.allyFormation = deck.formation.slice(0, maxA).map(s => ({ ...s }));
+      $('guide-modal').classList.remove('open');
+      spawnUnitsOnBoard();
+      showToast('추천 덱 자동 배치 완료!', deck.name, 1400);
+    };
+
+    document.querySelectorAll('#guide-tabs .rf-tab').forEach(btn => {
+      btn.onclick = () => { state.guideTab = btn.dataset.gtab; renderGuideModal(); };
+    });
+
+    function setDrawerOpen(open) {
+      state.drawerOpen = open;
+      $('roster-drawer').classList.toggle('collapsed', !open);
+      $('btn-toggle-drawer').classList.toggle('open', open);
+      setTxt('drawer-toggle-label', open ? '영웅창 닫기 ▼' : '영웅 선택 열기 ▲');
+    }
+
+    function startWarpIntoWorld() {
+      ensureAudio();
+      $('title-screen').classList.add('hidden');
+      $('warp-tunnel').classList.add('active');
+      state.screenMode = 'DIVING';
+      state.diveProgress = 0;
+      playTone(140, 'sawtooth', 1.1, 0.1, 880);
+    }
+
+    function returnToTitleScreen() {
+      state.screenMode = 'TITLE';
+      state.mvpUnit = null;
+      $('mobile-shell').classList.remove('visible');
+      $('codex-screen').classList.remove('visible');
+      $('title-screen').classList.remove('hidden');
+      updateShowcaseHeroModel(state.favoriteHero);
+      updateProfileUI();
+    }
+
+    function open3DCodex(fromScreen) {
+      state.prevScreen = fromScreen;
+      state.screenMode = 'CODEX';
+      $('title-screen').classList.add('hidden');
+      $('mobile-shell').classList.remove('visible');
+      $('codex-screen').classList.add('visible');
+
+      state.codexHeroIdx = Math.max(0, HERO_KEYS.indexOf(state.favoriteHero));
+      render3DCodexUI();
+    }
+
+    function close3DCodex() {
+      $('codex-screen').classList.remove('visible');
+      if (state.prevScreen === 'GAME') {
+        state.screenMode = 'GAME';
+        $('mobile-shell').classList.add('visible');
+        spawnUnitsOnBoard();
+      } else {
+        returnToTitleScreen();
+      }
+    }
+
+    function render3DCodexUI() {
+      const heroKey = HERO_KEYS[state.codexHeroIdx];
+      const h = CHARACTERS[heroKey];
+      const partner = h.comboPartner ? CHARACTERS[h.comboPartner] : null;
+      const curSkin = state.heroSkins[heroKey] || 'DEFAULT';
+
+      updateShowcaseHeroModel(heroKey);
+      setTxt('codex-counter-text', `${state.codexHeroIdx + 1} / ${HERO_KEYS.length} HEROES`);
+      setTxt('btn-set-favorite', state.favoriteHero === heroKey ? '★ 현재 대표 영웅' : '☆ 대표 영웅 등록');
+
+      // 1) 3D 스킨 테마 선택 버튼 렌더링
+      const skinRow = $('skin-selector-row');
+      skinRow.innerHTML = '';
+      Object.values(SKIN_THEMES).forEach(sk => {
+        const b = document.createElement('button');
+        b.className = `skin-chip ${curSkin === sk.id ? 'active' : ''}`;
+        b.textContent = sk.name;
+        b.onclick = () => {
+          state.heroSkins[heroKey] = sk.id;
+          saveAccountData();
+          render3DCodexUI();
+          updateProfileUI();
+          playTone(660, 'triangle', 0.12, 0.08);
+        };
+        skinRow.appendChild(b);
+      });
+
+      // 2) 영웅 캐러셀 알약
+      const pills = $('codex-pills');
+      pills.innerHTML = '';
+      HERO_KEYS.forEach((k, idx) => {
+        const pill = document.createElement('button');
+        pill.className = `h-pill ${idx === state.codexHeroIdx ? 'active' : ''}`;
+        pill.textContent = CHARACTERS[k].name;
+        pill.onclick = () => {
+          state.codexHeroIdx = idx;
+          render3DCodexUI();
+          playTone(580, 'sine', 0.06, 0.05);
+        };
+        pills.appendChild(pill);
+      });
+
+      $('codex-detail-body').innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <div>
+            <div style="font-size:16.5px; font-weight:900; color:${h.hex};">${h.fullName}</div>
+            <div style="font-size:11px; color:var(--sub); margin-top:2px;">${h.lore}</div>
+          </div>
+          <span style="font-size:10px; font-weight:800; padding:4px 8px; border-radius:999px; background:rgba(255,255,255,0.12); white-space:nowrap;">${h.roleBadge}</span>
+        </div>
+        <div class="codex-stats-grid" style="margin-bottom:6px;">
+          <div class="c-stat-box"><div style="font-size:9px; color:var(--sub);">HP</div><div style="font-size:12px; font-weight:800;">${h.hp}</div></div>
+          <div class="c-stat-box"><div style="font-size:9px; color:var(--sub);">ATK</div><div style="font-size:12px; font-weight:800;">${h.atk}</div></div>
+          <div class="c-stat-box"><div style="font-size:9px; color:var(--sub);">공속</div><div style="font-size:12px; font-weight:800;">${h.atkSpeed}/s</div></div>
+          <div class="c-stat-box"><div style="font-size:9px; color:var(--sub);">스킨</div><div style="font-size:11px; font-weight:800; color:var(--gold);">${SKIN_THEMES[curSkin].name.split(' ').pop()}</div></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          <div class="c-skill-item">
+            <div style="font-size:10px; font-weight:800; color:var(--cyan);">⚔️ 고유 일반 공격 · ${h.basicName}</div>
+            <div style="font-size:11px; color:#e2e8f0; margin-top:2px;">${h.basicDesc}</div>
+          </div>
+          <div class="c-skill-item" style="border-color:rgba(255,214,10,0.5); background:rgba(255,214,10,0.12);">
+            <div style="font-size:10px; font-weight:900; color:var(--gold);">★ 직관적 궁극기 (매 턴 합산 1회) · ${h.ultName}</div>
+            <div style="font-size:11px; color:#fff; margin-top:2px;">${h.ultDesc}</div>
+          </div>
+          ${partner ? `
+          <div class="c-skill-item" style="border-color:rgba(191,90,242,0.55); background:rgba(191,90,242,0.14);">
+            <div style="font-size:10px; font-weight:900; color:#e9d5ff;">⚡ 듀얼 콤보 파트너: [${partner.name}] · ${h.comboName}</div>
+            <div style="font-size:10.5px; color:#f3e8ff; margin-top:2px;">${h.comboDesc}</div>
+          </div>` : ''}
+        </div>
+      `;
+    }
+
+    function updateProfileUI() {
+      const fav = CHARACTERS[state.favoriteHero] || CHARACTERS.ducky;
+      const curSkin = state.heroSkins[fav.id] || 'DEFAULT';
+      setTxt('ui-profile-name', state.commanderName);
+      setTxt('ui-profile-pin', `PIN #${state.commanderPin}`);
+      setTxt('ui-commander-name', state.commanderName);
+      setTxt('profile-fav-name', fav.name);
+      setTxt('profile-skin-name', SKIN_THEMES[curSkin].name.split(' ').pop());
+      setTxt('floating-fav-label', fav.fullName);
+      setTxt('profile-avatar-char', fav.name[0]);
+      $('profile-avatar-ring').style.background = `linear-gradient(135deg, ${fav.hex}, #1e293b)`;
+      setTxt('profile-trophies', `🏆 ${state.trophies.toLocaleString()}`);
+    }
+
+    function showToast(title, sub, ms = 1400) {
+      const el = $('toast-banner');
+      setTxt('toast-title', title);
+      setTxt('toast-sub', sub);
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    function startBattle() {
+      if (state.phase !== 'PREP') return;
+      ensureAudio();
+      state.phase = 'BATTLE';
+      renderDualComboBoardLinks();
+      setDrawerOpen(false);
+      showToast(`ROUND ${state.round} FIGHT!`, '하단 원형 버튼으로 궁극기 또는 ⚡듀얼 콤보를 발동하세요!');
+      playTone(440, 'triangle', 0.22, 0.09);
+      updateUI();
+    }
+
+    function checkBattleEnd() {
+      if (state.phase !== 'BATTLE') return;
+      const allyAlive = units.some(u => u.alive && u.team === 'ALLY');
+      const enemyAlive = units.some(u => u.alive && u.team === 'ENEMY');
+
+      if (!allyAlive || !enemyAlive) {
+        state.phase = 'END';
+        const allyWon = allyAlive;
+        if (allyWon) {
+          state.allyWins++;
+          state.trophies += 15;
+          saveAccountData();
+          playTone(587, 'sine', 0.28, 0.1);
+        } else {
+          state.enemyWins++;
+        }
+        updateUI();
+
+        setTimeout(() => {
+          showMvpFitnessReport(allyWon, () => {
+            if (state.allyWins >= 2) {
+              state.cleared.add(state.stageIdx);
+              state.trophies += 40;
+              saveAccountData();
+              if (state.stageIdx < STAGES.length - 1) {
+                showToast('STAGE CLEAR! 🎉', '다음 스테이지로 이동합니다', 1600);
+                loadStage(state.stageIdx + 1);
+              } else {
+                showToast('ALL CLEAR! 🏆', '모든 성소를 제패했습니다!', 2200);
+                loadStage(0);
+              }
+            } else if (state.enemyWins >= 2) {
+              showToast('MATCH DEFEAT', '스테이지를 재도전합니다', 1600);
+              loadStage(state.stageIdx);
+            } else {
+              state.round++;
+              state.phase = 'PREP';
+              state.ultUsedThisTurn = false;
+              spawnUnitsOnBoard();
+            }
+          });
+        }, 950);
+      }
+    }
+
+    function loadStage(idx) {
+      state.stageIdx = idx;
+      state.round = 1;
+      state.allyWins = 0;
+      state.enemyWins = 0;
+      state.phase = 'PREP';
+      state.ultUsedThisTurn = false;
+      state.mvpUnit = null;
+
+      applyWeather(STAGES[idx].weather);
+
+      const maxA = STAGES[idx].maxAlly;
+      if (state.allyFormation.length > maxA) {
+        state.allyFormation = state.allyFormation.slice(0, maxA);
+      }
+      spawnUnitsOnBoard();
+    }
+
+    function toggleHeroDeployment(heroId) {
+      if (state.phase !== 'PREP') return;
+      const maxA = STAGES[state.stageIdx].maxAlly;
+      const idx = state.allyFormation.findIndex(s => s.id === heroId);
+
+      if (idx !== -1) {
+        if (state.allyFormation.length <= 1) {
+          showToast('최소 1명 배치 필요', '보드에 최소 1명은 있어야 합니다', 1100);
+          return;
+        }
+        state.allyFormation.splice(idx, 1);
+      } else {
+        if (state.allyFormation.length >= maxA) {
+          showToast('배치 인원 초과', `현재 스테이지는 최대 ${maxA}명까지 가능합니다`, 1200);
+          return;
+        }
+        let empty = null;
+        for (let r = 0; r < 3 && !empty; r++) {
+          for (let c = 0; c < 3 && !empty; c++) {
+            if (!state.allyFormation.some(s => s.row === r && s.col === c)) empty = { row: r, col: c };
+          }
+        }
+        if (empty) state.allyFormation.push({ id: heroId, row: empty.row, col: empty.col });
+      }
+      playTone(480, 'sine', 0.08, 0.06);
+      spawnUnitsOnBoard();
+    }
+
+    function stepInspectHero(dir) {
+      const idx = HERO_KEYS.indexOf(state.inspectedHero);
+      const nextIdx = (idx + dir + HERO_KEYS.length) % HERO_KEYS.length;
+      state.inspectedHero = HERO_KEYS[nextIdx];
+      updateUI();
+      playTone(540, 'sine', 0.06, 0.05);
+    }
+
+    function updateUI() {
+      const st = STAGES[state.stageIdx];
+      setTxt('ui-stage-pill', `STAGE ${st.stage}`);
+      setTxt('ui-phase-text', state.phase === 'PREP' ? `R${state.round} · 배치` : state.phase === 'BATTLE' ? `R${state.round} · 교전` : '종료');
+      setTxt('ui-deploy-count', `${state.allyFormation.length} / ${st.maxAlly}명 출전`);
+
+      const ap = $('ally-pips').children;
+      const ep = $('enemy-pips').children;
+      for (let i = 0; i < 2; i++) {
+        ap[i].className = i < state.allyWins ? 'pip ally-on' : 'pip';
+        ep[i].className = i < state.enemyWins ? 'pip enemy-on' : 'pip';
+      }
+
+      const stBox = $('stage-dots-box');
+      stBox.innerHTML = '';
+      STAGES.forEach((s, i) => {
+        const b = document.createElement('div');
+        b.className = `st-pill ${i === state.stageIdx ? 'active' : ''} ${state.cleared.has(i) ? 'cleared' : ''}`;
+        b.textContent = `S${s.stage}`;
+        b.onclick = () => loadStage(i);
+        stBox.appendChild(b);
+      });
+
+      const synBox = $('synergy-box');
+      const roleCounts = {};
+      state.allyFormation.forEach(s => {
+        const r = CHARACTERS[s.id].roleId;
+        roleCounts[r] = (roleCounts[r] || 0) + 1;
+      });
+      synBox.innerHTML = '';
+      ['TANK', 'RANGED', 'ASSASSIN', 'SUMMONER', 'SUPPORT'].forEach(rKey => {
+        if (roleCounts[rKey]) {
+          const chip = document.createElement('span');
+          chip.className = 'syn-item active';
+          chip.textContent = `${ROLE_META[rKey].label} ×${roleCounts[rKey]}`;
+          synBox.appendChild(chip);
+        }
+      });
+
+      // 직관적인 ◀ / ▶ 영웅 넘기기 브리핑 카드
+      const insHero = CHARACTERS[state.inspectedHero] || CHARACTERS.ducky;
+      const isInsDeployed = state.allyFormation.some(s => s.id === insHero.id);
+      const partnerHero = insHero.comboPartner ? CHARACTERS[insHero.comboPartner] : null;
+      const isComboReady = isInsDeployed && partnerHero && state.allyFormation.some(s => s.id === partnerHero.id);
+
+      $('hero-inspector-box').innerHTML = `
+        <div class="hi-top">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <button class="mini-icon-btn" id="btn-ins-prev">◀</button>
+            <span style="width:9px; height:9px; border-radius:50%; background:${insHero.hex}; display:inline-block;"></span>
+            <span style="font-size:12.5px; font-weight:900; color:${insHero.hex};">${insHero.fullName}</span>
+            <button class="mini-icon-btn" id="btn-ins-next">▶</button>
+          </div>
+          <button class="vision-pill ${isInsDeployed ? '' : 'primary'}" id="btn-inspector-deploy" style="padding:4px 10px; font-size:10.5px;">
+            ${isInsDeployed ? '출전 해제 ✕' : '+ 보드 출전'}
+          </button>
+        </div>
+        <div class="hi-skills-grid">
+          <div class="hi-skill-card">
+            <div style="font-size:9px; font-weight:800; color:var(--cyan);">⚔️ 일반 공격 · ${insHero.basicName}</div>
+            <div style="font-size:9.5px; color:#e2e8f0; margin-top:2px; line-height:1.3;">${insHero.basicDesc}</div>
+          </div>
+          <div class="hi-skill-card ult">
+            <div style="font-size:9px; font-weight:900; color:var(--gold);">★ 궁극기 · ${insHero.ultName}</div>
+            <div style="font-size:9.5px; color:#fff; font-weight:700; margin-top:2px; line-height:1.3;">${insHero.ultShort}</div>
+          </div>
+        </div>
+        ${partnerHero ? `
+        <div class="hi-combo-bar ${isComboReady ? 'ready' : ''}">
+          <span>⚡ 듀얼 콤보 파트너: <b>[${partnerHero.name}]</b> → ${insHero.comboName}</span>
+          <span>${isComboReady ? '⚡콤보 ON!' : '동시 배치 시'}</span>
+        </div>` : ''}
+      `;
+      $('btn-ins-prev').onclick = () => stepInspectHero(-1);
+      $('btn-ins-next').onclick = () => stepInspectHero(1);
+      $('btn-inspector-deploy').onclick = () => toggleHeroDeployment(insHero.id);
+
+      const rfBox = $('role-filter-tabs');
+      rfBox.innerHTML = '';
+      Object.values(ROLE_META).forEach(rm => {
+        const b = document.createElement('button');
+        b.className = `rf-tab ${state.roleFilter === rm.id ? 'active' : ''}`;
+        b.textContent = rm.label;
+        b.onclick = () => { state.roleFilter = rm.id; updateUI(); };
+        rfBox.appendChild(b);
+      });
+
+      const rGrid = $('roster-grid');
+      rGrid.innerHTML = '';
+      Object.values(CHARACTERS)
+        .filter(h => state.roleFilter === 'ALL' || h.roleId === state.roleFilter)
+        .forEach(h => {
+          const isDep = state.allyFormation.some(s => s.id === h.id);
+          const isIns = state.inspectedHero === h.id;
+          const card = document.createElement('div');
+          card.className = `apple-hero-card ${isDep ? 'deployed' : ''} ${isIns ? 'inspected' : ''}`;
+          card.innerHTML = `
+            <div class="ahc-check">✓</div>
+            <div class="ahc-avatar" style="background:${h.hex};">${h.name[0]}</div>
+            <div class="ahc-name">${h.name}</div>
+            <div class="ahc-role">${h.roleBadge.split(' ')[1]}</div>
+          `;
+          card.onclick = () => {
+            state.inspectedHero = h.id;
+            toggleHeroDeployment(h.id);
+          };
+          rGrid.appendChild(card);
+        });
+
+      $('turn-ult-banner').classList.toggle('used', state.ultUsedThisTurn);
+      setTxt('turn-ult-count-text', state.ultUsedThisTurn ? '사용 완료 (0/1)' : '사용 가능 (1/1)');
+
+      const orbsBox = $('quick-skill-orbs');
+      orbsBox.innerHTML = '';
+      state.allyFormation.forEach(slot => {
+        const h = CHARACTERS[slot.id];
+        const hasPartner = h.comboPartner && state.allyFormation.some(s => s.id === h.comboPartner);
+        const orb = document.createElement('button');
+        orb.className = `skill-orb ${state.ultUsedThisTurn ? 'used' : hasPartner ? 'dual-ready' : ''}`;
+        orb.style.borderColor = state.ultUsedThisTurn ? 'rgba(255,255,255,0.2)' : h.hex;
+        orb.innerHTML = `
+          <span class="orb-star">${state.ultUsedThisTurn ? 'END' : hasPartner ? '⚡DUAL' : '★궁극기'}</span>
+          <span class="orb-name">${h.name}</span>
+        `;
+        if (!state.ultUsedThisTurn) orb.onclick = () => triggerTurnUltimate(h.id);
+        orbsBox.appendChild(orb);
+      });
+
+      const fBtn = $('btn-fight');
+      fBtn.disabled = state.phase !== 'PREP';
+      fBtn.textContent = state.phase === 'PREP' ? '전투 시작 ▶' : '교전 중...';
+    }
+
+    function renderNewsModal() {
+      $('news-list-container').innerHTML = PATCH_NOTES.map(note => `
+        <div class="c-skill-item" style="border-left: 3px solid ${note.color};">
+          <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <span style="font-size:12.5px; font-weight:900;">${note.version}</span>
+            <span style="font-size:10px; font-weight:800; color:${note.color};">${note.date}</span>
+          </div>
+          <div style="font-size:11px; color:#cbd5e1; line-height:1.5;">
+            ${note.items.map(i => `<div style="margin-bottom:3px;">${i}</div>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 로그인 모달 (사용자 이름 + 3자리 숫자 PIN)
+    $('btn-open-login').onclick = () => {
+      $('login-name-input').value = state.commanderName;
+      $('login-pin-input').value = state.commanderPin;
+      $('login-modal').classList.add('open');
+    };
+    $('btn-save-login').onclick = () => {
+      const nameVal = $('login-name-input').value.trim() || '사령관';
+      const pinVal = ($('login-pin-input').value.replace(/\D/g, '') || '777').padStart(3, '0').slice(0, 3);
+      state.commanderName = nameVal;
+      state.commanderPin = pinVal;
+      saveAccountData();
+      updateProfileUI();
+      $('login-modal').classList.remove('open');
+      showToast('🔐 사령관 계정 로그인 완료!', `${nameVal} (PIN #${pinVal})`, 1400);
+    };
+
+    $('btn-warp-start').onclick = startWarpIntoWorld;
+    $('btn-home').onclick = returnToTitleScreen;
+    $('btn-title-weather').onclick = cycleWeather;
+    $('btn-ingame-weather').onclick = cycleWeather;
+
+    $('btn-title-codex').onclick = () => open3DCodex('TITLE');
+    $('btn-change-fav-quick').onclick = () => open3DCodex('TITLE');
+    $('btn-ingame-codex').onclick = () => open3DCodex('GAME');
+    $('btn-codex-back').onclick = close3DCodex;
+
+    $('btn-title-guide').onclick = () => { renderGuideModal(); $('guide-modal').classList.add('open'); };
+    $('btn-ingame-guide').onclick = () => { renderGuideModal(); $('guide-modal').classList.add('open'); };
+
+    $('btn-codex-prev').onclick = () => {
+      state.codexHeroIdx = (state.codexHeroIdx - 1 + HERO_KEYS.length) % HERO_KEYS.length;
+      render3DCodexUI();
+    };
+    $('btn-codex-next').onclick = () => {
+      state.codexHeroIdx = (state.codexHeroIdx + 1) % HERO_KEYS.length;
+      render3DCodexUI();
+    };
+    $('btn-set-favorite').onclick = () => {
+      state.favoriteHero = HERO_KEYS[state.codexHeroIdx];
+      saveAccountData();
+      updateProfileUI();
+      render3DCodexUI();
+      showToast('★ 대표 영웅 등록 완료!', CHARACTERS[state.favoriteHero].fullName, 1300);
+    };
+
+    $('btn-toggle-drawer').onclick = () => setDrawerOpen(!state.drawerOpen);
+    $('btn-title-news').onclick = () => { renderNewsModal(); $('news-modal').classList.add('open'); };
+    $('btn-open-news-banner').onclick = () => { renderNewsModal(); $('news-modal').classList.add('open'); };
+    $('btn-title-settings').onclick = () => $('settings-modal').classList.add('open');
+    $('btn-ingame-settings').onclick = () => $('settings-modal').classList.add('open');
+
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.onclick = () => $(btn.dataset.close).classList.remove('open');
+    });
+
+    function bindToggle(btnId, key, cb) {
+      const btn = $(btnId);
+      if (!btn) return;
+      btn.onclick = () => {
+        settings[key] = !settings[key];
+        btn.classList.toggle('primary', settings[key]);
+        btn.textContent = settings[key] ? 'ON' : 'OFF';
+        if (cb) cb(settings[key]);
+      };
+    }
+    bindToggle('set-bgm', 'bgm');
+    bindToggle('set-action-cam', 'actionCam');
+    bindToggle('set-sound', 'sound');
+    bindToggle('set-particles', 'particles', (v) => { natureParticles.visible = v; });
+
+    $('btn-reset-in-settings').onclick = () => {
+      $('settings-modal').classList.remove('open');
+      loadStage(state.stageIdx);
+    };
+
+    $('btn-fight').onclick = startBattle;
+    $('btn-speed').onclick = (e) => {
+      state.speed = state.speed === 1 ? 2 : 1;
+      e.target.textContent = `${state.speed}x`;
+    };
+    $('btn-cam').onclick = () => { state.camIdx = (state.camIdx + 1) % 3; };
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /**************************************************************
+     * 13. 메인 렌더링 & 전투 루프 (보라색 오리 ‘덕키’ 빗나감 난사 포함!)
+     **************************************************************/
+    function getBoardCameraPose() {
+      const aspect = window.innerWidth / window.innerHeight;
+      const zoomScale = aspect < 0.72 ? Math.min(1.42, 0.72 / aspect) : 1.0;
+
+      if (state.camIdx === 0) {
+        return { pos: new THREE.Vector3(0, 12.0 * zoomScale, 10.6 * zoomScale), look: new THREE.Vector3(0, 0, 0.35) };
+      } else if (state.camIdx === 1) {
+        return { pos: new THREE.Vector3(0, 16.5 * zoomScale, 3.8 * zoomScale), look: new THREE.Vector3(0, 0, 0.2) };
+      } else {
+        return { pos: new THREE.Vector3(3.4 * zoomScale, 10.4 * zoomScale, 10.4 * zoomScale), look: new THREE.Vector3(0, 0.2, 0.2) };
+      }
+    }
+
+    let prevTime = performance.now();
+    const camLookTarget = new THREE.Vector3(0, 7.05, 18.0);
+    camera.position.set(0, 7.65, 22.2);
+    camera.lookAt(camLookTarget);
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const rawDt = Math.min(0.05, (now - prevTime) / 1000);
+      prevTime = now;
+
+      if (state.actionCam.active) {
+        state.actionCam.timer -= rawDt;
+        if (state.actionCam.timer <= 0 || !state.actionCam.unit || !state.actionCam.unit.alive) {
+          state.actionCam.active = false;
+          state.actionCam.timeScale = 1.0;
+          $('cinematic-bars').classList.remove('active');
+        }
+      }
+
+      const dt = rawDt * state.speed * (state.actionCam.active ? state.actionCam.timeScale : 1.0);
+
+      oceanMesh.position.y = -2.1 + Math.sin(now * 0.0018) * 0.08;
+      foamRing.scale.setScalar(1 + Math.sin(now * 0.0025) * 0.02);
+      riverMat.emissiveIntensity = 0.48 + Math.sin(now * 0.005) * 0.18;
+      holoRing.rotation.z += rawDt * 0.8;
+
+      if (showcaseHeroMesh) {
+        showcaseHeroMesh.scale.lerp(new THREE.Vector3(1, 1, 1), 0.16);
+        if (!isRotatingShowcase) state.showcaseRotY += rawDt * 0.45;
+        showcaseHeroMesh.rotation.y = state.showcaseRotY;
+        if (showcaseHeroMesh.userData.rig) {
+          showcaseHeroMesh.userData.rig.position.y = Math.sin(now * 0.004) * 0.05;
+        }
+      }
+
+      trees.forEach(t => { t.mesh.rotation.z = Math.sin(now * 0.002 + t.phase) * 0.035; });
+
+      if (settings.particles) {
+        const arr = natureParticles.geometry.attributes.position.array;
+        for (let i = 0; i < natureParticleCount; i++) {
+          arr[i * 3 + 1] -= rawDt * 0.6;
+          arr[i * 3] += Math.sin(now * 0.001 + i) * 0.008;
+          if (arr[i * 3 + 1] < 0) arr[i * 3 + 1] = 11;
+        }
+        natureParticles.geometry.attributes.position.needsUpdate = true;
+      }
+
+      const boardPose = getBoardCameraPose();
+
+      if (state.screenMode === 'INTRO' || state.screenMode === 'TITLE') {
+        camera.position.lerp(new THREE.Vector3(0, 7.65, 22.2), 0.08);
+        camLookTarget.lerp(new THREE.Vector3(0, 7.05, 18.0), 0.1);
+        camera.lookAt(camLookTarget);
+        camera.fov = THREE.MathUtils.lerp(camera.fov, 42, 0.1);
+        camera.updateProjectionMatrix();
+
+      } else if (state.screenMode === 'CODEX') {
+        camera.position.lerp(new THREE.Vector3(0, 7.55, 21.35), 0.12);
+        camLookTarget.lerp(new THREE.Vector3(0, 6.75, 18.0), 0.14);
+        camera.lookAt(camLookTarget);
+        camera.fov = THREE.MathUtils.lerp(camera.fov, 38, 0.12);
+        camera.updateProjectionMatrix();
+
+      } else if (state.screenMode === 'DIVING') {
+        state.diveProgress += rawDt * 0.78;
+        const t = Math.min(1, state.diveProgress);
+        const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        camera.position.lerpVectors(new THREE.Vector3(0, 26, 24), boardPose.pos, ease);
+        camLookTarget.lerpVectors(new THREE.Vector3(0, 2, 6), boardPose.look, ease);
+        camera.lookAt(camLookTarget);
+        camera.fov = 45 + Math.sin(t * Math.PI) * 30;
+        camera.updateProjectionMatrix();
+
+        if (t >= 1) {
+          state.screenMode = 'GAME';
+          camera.fov = 45;
+          camera.updateProjectionMatrix();
+          $('warp-tunnel').classList.remove('active');
+          $('mobile-shell').classList.add('visible');
+          showToast(`전장 도착!`, STAGES[state.stageIdx].name, 1400);
+        }
+
+      } else if (state.screenMode === 'GAME') {
+        const focusUnit = (state.actionCam.active && state.actionCam.unit) ? state.actionCam.unit : state.mvpUnit;
+        if (focusUnit && focusUnit.alive) {
+          const uPos = focusUnit.mesh.position;
+          camera.position.lerp(new THREE.Vector3(uPos.x + 1.1, uPos.y + 3.2, uPos.z + 3.6), 0.16);
+          camLookTarget.lerp(new THREE.Vector3(uPos.x, uPos.y + 1.0, uPos.z), 0.2);
+          camera.fov = THREE.MathUtils.lerp(camera.fov, 34, 0.15);
+          camera.updateProjectionMatrix();
+        } else {
+          camera.position.lerp(boardPose.pos, 0.08);
+          camLookTarget.lerp(boardPose.look, 0.1);
+          camera.fov = THREE.MathUtils.lerp(camera.fov, 45, 0.12);
+          camera.updateProjectionMatrix();
+        }
+
+        if (state.cameraShake > 0) {
+          state.cameraShake = Math.max(0, state.cameraShake - rawDt * 1.5);
+          camera.position.x += (Math.random() - 0.5) * state.cameraShake;
+          camera.position.y += (Math.random() - 0.5) * state.cameraShake;
+        }
+        camera.lookAt(camLookTarget);
+      }
+
+      // 유닛 업데이트
+      units.forEach(u => {
+        if (!u.alive) {
+          u.updateHUD();
+          return;
+        }
+
+        if (u.mesh.userData.rig) {
+          u.mesh.userData.rig.position.y = Math.sin(now * 0.004 + u.idlePhase) * 0.045;
+        }
+
+        if (state.phase !== 'BATTLE' || state.screenMode !== 'GAME') {
+          const prev = u.mesh.position.clone();
+          u.mesh.position.lerp(u.targetPos, 0.24);
+          u.velocity.subVectors(u.mesh.position, prev);
+          u.mesh.rotation.z = THREE.MathUtils.lerp(u.mesh.rotation.z, -u.velocity.x * 1.6, 0.25);
+          u.mesh.rotation.x = THREE.MathUtils.lerp(u.mesh.rotation.x, u.velocity.z * 1.6, 0.25);
+        } else {
+          u.mesh.rotation.z = THREE.MathUtils.lerp(u.mesh.rotation.z, 0, 0.2);
+          u.mesh.rotation.x = THREE.MathUtils.lerp(u.mesh.rotation.x, 0, 0.2);
+
+          if (u.stunTimer > 0) {
+            u.stunTimer -= dt;
+          } else {
+            let nearest = null;
+            let minDist = Infinity;
+            units.forEach(other => {
+              if (other.alive && other.team !== u.team) {
+                const d = u.mesh.position.distanceTo(other.mesh.position);
+                if (d < minDist) { minDist = d; nearest = other; }
+              }
+            });
+
+            if (nearest) {
+              const dx = nearest.mesh.position.x - u.mesh.position.x;
+              const dz = nearest.mesh.position.z - u.mesh.position.z;
+              u.mesh.rotation.y = Math.atan2(dx, dz);
+
+              if (minDist > u.range && u.heroId !== 'turret') {
+                const dir = new THREE.Vector3(dx, 0, dz).normalize();
+                u.mesh.position.addScaledVector(dir, dt * 2.45);
+              } else {
+                if (u.team === 'ENEMY' && u.mana >= u.maxMana) {
+                  u.mana = 0;
+                  executeSingleHeroUltimateAction(u, false);
+                } else {
+                  u.atkCooldown -= dt;
+                  if (u.atkCooldown <= 0) {
+                    u.atkCooldown = 1 / u.atkSpeed;
+                    u.scaleBounce = 1.24;
+                    u.mana = Math.min(u.maxMana, u.mana + 20);
+                    playTone(u.range < 3.5 ? 260 : 620, 'sine', 0.05, 0.035);
+
+                    if (u.range < 3.5) {
+                      nearest.takeDamage(u.atk, '', u);
+                      spawnRingVFX(nearest.mesh.position, u.data.color, 0.85, 0.22);
+                    } else if (u.heroId === 'ducky') {
+                      // ★ 보라색 오리 덕키 고유 평타: 얇은 총알이 삐뚤빼뚤 빗나가는 코믹 난사!
+                      const isMiss = Math.random() < 0.45;
+                      const thinBullet = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6).rotateX(Math.PI / 2),
+                        new THREE.MeshBasicMaterial({ color: 0xe879f9 })
+                      );
+                      thinBullet.position.copy(u.mesh.position);
+                      thinBullet.position.y = 0.95;
+                      scene.add(thinBullet);
+
+                      projectiles.push({
+                        mesh: thinBullet,
+                        attacker: u,
+                        target: nearest,
+                        dmg: isMiss ? Math.round(u.atk * 0.35) : u.atk,
+                        missTag: isMiss ? '탕탕! 빗나감;;' : '어라? 맞았네!',
+                        scatterOffset: isMiss ? new THREE.Vector3((Math.random() - 0.5) * 2.2, (Math.random() - 0.3) * 1.0, (Math.random() - 0.5) * 1.5) : new THREE.Vector3(),
+                        speed: 16.5
+                      });
+                    } else {
+                      const pm = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.15, 8, 8),
+                        new THREE.MeshBasicMaterial({ color: u.data.color })
+                      );
+                      pm.position.copy(u.mesh.position);
+                      pm.position.y = 0.95;
+                      scene.add(pm);
+                      projectiles.push({ mesh: pm, attacker: u, target: nearest, dmg: u.atk, speed: 13.8 });
+
+                      if (u.heroId === 'lumina') {
+                        const allies = units.filter(a => a.alive && a.team === u.team);
+                        if (allies.length > 0) {
+                          allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+                          allies[0].heal(52, u);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        u.scaleBounce = THREE.MathUtils.lerp(u.scaleBounce, 1.0, 0.18);
+        u.mesh.scale.set(1 / Math.sqrt(u.scaleBounce), u.scaleBounce, 1 / Math.sqrt(u.scaleBounce));
+        u.updateHUD();
+      });
+
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        if (!p.target.alive) {
+          scene.remove(p.mesh);
+          projectiles.splice(i, 1);
+          continue;
+        }
+        const tp = p.target.mesh.position.clone().add(p.scatterOffset || new THREE.Vector3());
+        tp.y = 0.95;
+        const dir = new THREE.Vector3().subVectors(tp, p.mesh.position);
+        p.mesh.lookAt(tp);
+        if (dir.length() < 0.45) {
+          p.target.takeDamage(p.dmg, p.missTag || '', p.attacker);
+          scene.remove(p.mesh);
+          projectiles.splice(i, 1);
+        } else {
+          dir.normalize();
+          p.mesh.position.addScaledVector(dir, dt * p.speed);
+        }
+      }
+
+      for (let i = vfxList.length - 1; i >= 0; i--) {
+        if (!vfxList[i].update(dt)) {
+          scene.remove(vfxList[i].mesh);
+          vfxList.splice(i, 1);
+        }
+      }
+
+      if (state.phase === 'BATTLE' && state.screenMode === 'GAME') checkBattleEnd();
+      renderer.render(scene, camera);
+    }
+
+    updateShowcaseHeroModel(state.favoriteHero);
+    updateProfileUI();
+    loadStage(0);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
