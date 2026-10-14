@@ -1263,3 +1263,1119 @@
      **************************************************************/
     function buildHeroMesh(heroId, team) {
       const data = CHARACTERS[heroId];
+      const group = new THREE.Group();
+
+      // 베이스 페데스탈 링
+      const baseGeo = new THREE.CylinderGeometry(0.56, 0.62, 0.12, 24);
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: team === 'ALLY' ? 0x0284c7 : 0xe11d48,
+        metalness: 0.7,
+        roughness: 0.2,
+        emissive: team === 'ALLY' ? 0x0369a1 : 0xbe123c,
+        emissiveIntensity: 0.35
+      });
+      const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+      baseMesh.position.y = 0.12;
+      baseMesh.castShadow = true;
+      group.add(baseMesh);
+
+      // 몸체
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: data.color,
+        roughness: 0.28,
+        metalness: 0.45
+      });
+      const bodyGeo = new THREE.CylinderGeometry(0.32, 0.42, 0.95, 16);
+      const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+      bodyMesh.position.y = 0.68;
+      bodyMesh.castShadow = true;
+      group.add(bodyMesh);
+
+      // 머리
+      const headGeo = new THREE.SphereGeometry(0.28, 20, 20);
+      const headMat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        roughness: 0.2,
+        metalness: 0.2
+      });
+      const headMesh = new THREE.Mesh(headGeo, headMat);
+      headMesh.position.y = 1.38;
+      headMesh.castShadow = true;
+      group.add(headMesh);
+
+      // 눈 바이저 (방향 식별용: +X 방향을 바라봄)
+      const visorGeo = new THREE.BoxGeometry(0.14, 0.1, 0.34);
+      const visorMat = new THREE.MeshBasicMaterial({ color: team === 'ALLY' ? 0x38bdf8 : 0xf43f5e });
+      const visorMesh = new THREE.Mesh(visorGeo, visorMat);
+      visorMesh.position.set(0.22, 1.38, 0);
+      group.add(visorMesh);
+
+      // 캐릭터별 고유 무기/장식
+      const weaponGroup = new THREE.Group();
+      const glowMat = new THREE.MeshBasicMaterial({ color: data.color });
+
+      if (heroId === 'hanzo') {
+        // 빛나는 대형 활 (Bow)
+        const bowArc = new THREE.TorusGeometry(0.48, 0.045, 12, 24, Math.PI * 1.15);
+        const bowMesh = new THREE.Mesh(bowArc, glowMat);
+        bowMesh.rotation.z = -Math.PI / 2;
+        bowMesh.rotation.y = Math.PI / 2;
+        bowMesh.position.set(0.42, 0.85, 0);
+        weaponGroup.add(bowMesh);
+      } else if (heroId === 'reinhardt') {
+        // 전방 에너지 방패 + 해머
+        const shieldGeo = new THREE.BoxGeometry(0.12, 0.95, 0.95);
+        const shieldMat = new THREE.MeshStandardMaterial({
+          color: 0xfbbf24,
+          transparent: true,
+          opacity: 0.72,
+          emissive: 0xf59e0b,
+          emissiveIntensity: 0.4
+        });
+        const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+        shieldMesh.position.set(0.48, 0.78, 0);
+        weaponGroup.add(shieldMesh);
+      } else if (heroId === 'zeno') {
+        // 암살자 쌍검
+        const bladeGeo = new THREE.BoxGeometry(0.65, 0.06, 0.08);
+        const blade1 = new THREE.Mesh(bladeGeo, glowMat);
+        blade1.position.set(0.35, 0.8, 0.38);
+        blade1.rotation.y = 0.25;
+        const blade2 = blade1.clone();
+        blade2.position.z = -0.38;
+        blade2.rotation.y = -0.25;
+        weaponGroup.add(blade1, blade2);
+      } else if (heroId === 'seraphine') {
+        // 천상의 헤일로 링 + 지팡이 오브
+        const haloGeo = new THREE.TorusGeometry(0.36, 0.035, 12, 28);
+        haloGeo.rotateX(Math.PI / 2);
+        const haloMesh = new THREE.Mesh(haloGeo, glowMat);
+        haloMesh.position.set(0, 1.82, 0);
+        weaponGroup.add(haloMesh);
+      } else if (heroId === 'volt') {
+        // 테슬라 코일 링 2개
+        const coilGeo = new THREE.TorusGeometry(0.48, 0.04, 10, 24);
+        coilGeo.rotateX(Math.PI / 2);
+        const coil1 = new THREE.Mesh(coilGeo, glowMat);
+        coil1.position.set(0, 0.95, 0);
+        weaponGroup.add(coil1);
+      } else if (heroId === 'frost') {
+        // 회전하는 빙결 크리스탈
+        const cryGeo = new THREE.OctahedronGeometry(0.24, 0);
+        const cryMesh = new THREE.Mesh(cryGeo, glowMat);
+        cryMesh.position.set(0.42, 1.25, 0);
+        weaponGroup.add(cryMesh);
+      }
+
+      group.add(weaponGroup);
+      group.rotation.y = team === 'ALLY' ? 0 : Math.PI;
+      return group;
+    }
+
+    /**************************************************************
+     * 6. 전투 유닛 인스턴스 및 이펙트 관리
+     **************************************************************/
+    let units = [];
+    let projectiles = [];
+    let vfxList = [];
+
+    class BattleUnit {
+      constructor(heroId, team, row, col, statScale = 1.0) {
+        this.heroId = heroId;
+        this.data = CHARACTERS[heroId];
+        this.team = team;
+        this.row = row;
+        this.col = col;
+
+        this.maxHp = Math.round(this.data.hp * statScale);
+        this.hp = this.maxHp;
+        this.shield = 0;
+        this.atk = Math.round(this.data.atk * statScale);
+        this.range = this.data.range * 2.15; // 월드 거리 환산
+        this.atkSpeed = this.data.atkSpeed;
+        this.mana = 0;
+        this.maxMana = 100;
+
+        this.alive = true;
+        this.stunTimer = 0;
+        this.buffCritTimer = 0;
+        this.atkCooldown = 0.4 + Math.random() * 0.3;
+
+        // 3D Mesh
+        this.mesh = buildHeroMesh(heroId, team);
+        const startPos = getTileWorldPos(team, row, col);
+        this.mesh.position.copy(startPos);
+        this.targetPos = startPos.clone();
+        this.velocity = new THREE.Vector3();
+        this.scaleBounce = 1.32; // 소환 시 쫀득한 탄성 스케일
+        this.mesh.userData.unit = this;
+        scene.add(this.mesh);
+
+        // 2D 오버레이 HUD 생성
+        this.hudEl = document.createElement('div');
+        this.hudEl.className = 'unit-hud';
+        this.hudEl.innerHTML = `
+          <div class="unit-hud-name" style="color:${team === 'ALLY' ? '#bae6fd' : '#fecdd3'}">${this.data.name.split(' ')[0]}</div>
+          <div class="bar-wrap"><div class="hp-fill ${team === 'ENEMY' ? 'enemy' : ''}" style="width:100%"></div></div>
+          <div class="mp-wrap"><div class="mp-fill" style="width:0%"></div></div>
+        `;
+        overlayLayer.appendChild(this.hudEl);
+        this.hpFillEl = this.hudEl.querySelector('.hp-fill');
+        this.mpFillEl = this.hudEl.querySelector('.mp-fill');
+      }
+
+      updateHUD() {
+        if (!this.alive) {
+          this.hudEl.style.opacity = '0';
+          return;
+        }
+        this.hudEl.style.opacity = '1';
+        const worldPos = this.mesh.position.clone();
+        worldPos.y += 2.05;
+        worldPos.project(camera);
+
+        const x = (worldPos.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-(worldPos.y * 0.5) + 0.5) * window.innerHeight;
+        this.hudEl.style.left = `${x}px`;
+        this.hudEl.style.top = `${y}px`;
+
+        const hpPct = Math.max(0, Math.min(100, (this.hp / this.maxHp) * 100));
+        const mpPct = Math.max(0, Math.min(100, (this.mana / this.maxMana) * 100));
+        this.hpFillEl.style.width = `${hpPct}%`;
+        this.mpFillEl.style.width = `${mpPct}%`;
+      }
+
+      takeDamage(amount, label = '') {
+        if (!this.alive) return;
+        let dmg = Math.round(amount);
+        if (this.shield > 0) {
+          const absorbed = Math.min(this.shield, dmg);
+          this.shield -= absorbed;
+          dmg -= absorbed;
+        }
+        this.hp -= dmg;
+        this.mana = Math.min(this.maxMana, this.mana + 8);
+        this.scaleBounce = 1.22;
+
+        spawnFloatingText(
+          this.mesh.position,
+          label ? `${label} -${dmg}` : `-${dmg}`,
+          this.team === 'ALLY' ? '#f87171' : '#fbbf24'
+        );
+
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.alive = false;
+          this.mesh.visible = false;
+          spawnBurstRing(this.mesh.position, this.data.color, 1.4);
+        }
+      }
+
+      heal(amount) {
+        if (!this.alive) return;
+        const val = Math.round(amount);
+        this.hp = Math.min(this.maxHp, this.hp + val);
+        spawnFloatingText(this.mesh.position, `+${val}`, '#34d399');
+      }
+
+      destroy() {
+        scene.remove(this.mesh);
+        if (this.hudEl && this.hudEl.parentNode) {
+          this.hudEl.parentNode.removeChild(this.hudEl);
+        }
+      }
+    }
+
+    // 플로팅 데미지/힐 텍스트
+    function spawnFloatingText(worldPos, text, color = '#fff') {
+      const pos = worldPos.clone();
+      pos.y += 1.6;
+      pos.project(camera);
+      const x = (pos.x * 0.5 + 0.5) * window.innerWidth + (Math.random() - 0.5) * 24;
+      const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
+
+      const el = document.createElement('div');
+      el.className = 'float-text';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.color = color;
+      el.textContent = text;
+      overlayLayer.appendChild(el);
+      setTimeout(() => el.remove(), 950);
+    }
+
+    // 3D 원형 파동 이펙트
+    function spawnBurstRing(pos, color, maxRadius = 2.2, duration = 0.45) {
+      const geo = new THREE.RingGeometry(0.15, 0.35, 32);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(pos);
+      mesh.position.y = 0.15;
+      scene.add(mesh);
+
+      vfxList.push({
+        mesh,
+        elapsed: 0,
+        duration,
+        update(dt) {
+          this.elapsed += dt;
+          const t = Math.min(1, this.elapsed / this.duration);
+          const s = 1 + t * (maxRadius * 3.2);
+          this.mesh.scale.set(s, s, s);
+          this.mesh.material.opacity = 0.9 * (1 - t);
+          return this.elapsed < this.duration;
+        }
+      });
+    }
+
+    // 한조 궁극기: 가로 한 줄(Row) 쌍룡 웨이브 이펙트
+    function spawnHanzoDragonWave(row, team, dmg) {
+      const z = (row - 1) * TILE_SPACING_Z;
+      const startX = team === 'ALLY' ? -5.5 : 5.5;
+      const dir = team === 'ALLY' ? 1 : -1;
+
+      const dragonGroup = new THREE.Group();
+      dragonGroup.position.set(startX, 0.95, z);
+
+      // 나선형 쌍룡 구체 세그먼트 생성
+      const segCount = 26;
+      const segments = [];
+      for (let i = 0; i < segCount; i++) {
+        const radius = i === 0 ? 0.34 : Math.max(0.12, 0.28 * (1 - i / segCount));
+        const geo = new THREE.SphereGeometry(radius, 12, 12);
+        const mat1 = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.92 });
+        const mat2 = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.88 });
+        const s1 = new THREE.Mesh(geo, mat1);
+        const s2 = new THREE.Mesh(geo, mat2);
+        dragonGroup.add(s1, s2);
+        segments.push({ s1, s2, idx: i });
+      }
+
+      // 가로 줄 바닥 하이라이트 트랙
+      const laneGeo = new THREE.PlaneGeometry(16, 1.75);
+      laneGeo.rotateX(-Math.PI / 2);
+      const laneMat = new THREE.MeshBasicMaterial({
+        color: team === 'ALLY' ? 0x38bdf8 : 0xf43f5e,
+        transparent: true,
+        opacity: 0.35,
+        side: THREE.DoubleSide
+      });
+      const laneMesh = new THREE.Mesh(laneGeo, laneMat);
+      laneMesh.position.set(0, 0.08, z);
+      scene.add(laneMesh);
+      scene.add(dragonGroup);
+
+      const hitSet = new Set();
+
+      vfxList.push({
+        mesh: dragonGroup,
+        laneMesh,
+        elapsed: 0,
+        duration: 1.05,
+        update(dt) {
+          this.elapsed += dt;
+          dragonGroup.position.x += dir * dt * 14.5;
+
+          segments.forEach(({ s1, s2, idx }) => {
+            const offset = -dir * idx * 0.25;
+            const wave = this.elapsed * 14 - idx * 0.45;
+            s1.position.set(offset, Math.sin(wave) * 0.42, Math.cos(wave) * 0.42);
+            s2.position.set(offset, -Math.sin(wave) * 0.42, -Math.cos(wave) * 0.42);
+          });
+
+          // 같은 줄(Row) 또는 Z 반경 내 적 관통 타격 + 넉백
+          units.forEach(u => {
+            if (u.alive && u.team !== team && !hitSet.has(u)) {
+              const dz = Math.abs(u.mesh.position.z - z);
+              const dx = Math.abs(u.mesh.position.x - dragonGroup.position.x);
+              if (dz < 1.15 && dx < 1.2) {
+                hitSet.add(u);
+                u.takeDamage(dmg, '용의 일격!');
+                u.mesh.position.x += dir * 0.65; // 넉백 연출
+              }
+            }
+          });
+
+          laneMat.opacity = Math.max(0, 0.38 * (1 - this.elapsed / this.duration));
+          if (this.elapsed >= this.duration) {
+            scene.remove(laneMesh);
+            return false;
+          }
+          return true;
+        }
+      });
+    }
+
+    /**************************************************************
+     * 7. 스테이지 & 보드 유닛 배치 스폰
+     **************************************************************/
+    function spawnBoardFromState() {
+      units.forEach(u => u.destroy());
+      units = [];
+      projectiles.forEach(p => scene.remove(p.mesh));
+      projectiles = [];
+      vfxList.forEach(v => scene.remove(v.mesh));
+      vfxList = [];
+
+      const stageData = STAGES[state.currentStageIdx];
+
+      // 아군 스폰
+      state.allyFormation.forEach(slot => {
+        const u = new BattleUnit(slot.id, 'ALLY', slot.row, slot.col, 1.0);
+        units.push(u);
+      });
+
+      // 적군 스폰
+      stageData.enemies.forEach(slot => {
+        const u = new BattleUnit(slot.id, 'ENEMY', slot.row, slot.col, stageData.statScale);
+        units.push(u);
+      });
+
+      updateUI();
+    }
+
+    /**************************************************************
+     * 8. 전투 AI 루프 (일반공격, 궁극기, 1회 특수능력)
+     **************************************************************/
+    function findNearestEnemy(unit) {
+      let best = null;
+      let minDist = Infinity;
+      units.forEach(other => {
+        if (other.alive && other.team !== unit.team) {
+          const d = unit.mesh.position.distanceTo(other.mesh.position);
+          if (d < minDist) {
+            minDist = d;
+            best = other;
+          }
+        }
+      });
+      return { target: best, dist: minDist };
+    }
+
+    function executeUltimate(unit) {
+      unit.mana = 0;
+      unit.scaleBounce = 1.45;
+      const enemies = units.filter(u => u.alive && u.team !== unit.team);
+      const allies = units.filter(u => u.alive && u.team === unit.team);
+      if (enemies.length === 0) return;
+
+      if (unit.heroId === 'hanzo') {
+        // 한조: 현재 자신이 서 있는 가로 한 줄(Row)을 용으로 쓸어버림
+        const currentRow = Math.max(0, Math.min(2, Math.round(unit.mesh.position.z / TILE_SPACING_Z + 1)));
+        spawnFloatingText(unit.mesh.position, '용의 일격!!', '#38bdf8');
+        spawnHanzoDragonWave(currentRow, unit.team, 290);
+      } else if (unit.heroId === 'reinhardt') {
+        spawnFloatingText(unit.mesh.position, '대지분쇄!!', '#fbbf24');
+        spawnBurstRing(unit.mesh.position, 0xfbbf24, 3.6, 0.55);
+        enemies.forEach(e => {
+          e.takeDamage(185, '대지분쇄');
+          e.stunTimer = Math.max(e.stunTimer, 2.2);
+        });
+      } else if (unit.heroId === 'zeno') {
+        // 최저 체력 적 뒤로 순간이동 후 처형
+        let weakest = enemies[0];
+        enemies.forEach(e => { if (e.hp < weakest.hp) weakest = e; });
+        const offset = unit.team === 'ALLY' ? 0.85 : -0.85;
+        unit.mesh.position.set(weakest.mesh.position.x + offset, 0, weakest.mesh.position.z);
+        spawnBurstRing(weakest.mesh.position, 0xa855f7, 2.0, 0.4);
+        weakest.takeDamage(330, '차원 일섬!');
+      } else if (unit.heroId === 'seraphine') {
+        spawnFloatingText(unit.mesh.position, '천상의 교향곡!', '#34d399');
+        spawnBurstRing(unit.mesh.position, 0x34d399, 4.0, 0.6);
+        allies.forEach(a => {
+          a.heal(280);
+          a.atk = Math.round(a.atk * 1.2);
+        });
+      } else if (unit.heroId === 'volt') {
+        spawnFloatingText(unit.mesh.position, '전자기 폭풍!', '#60a5fa');
+        enemies.forEach(e => {
+          spawnBurstRing(e.mesh.position, 0x60a5fa, 1.5, 0.35);
+          e.takeDamage(210, '과부하');
+          e.mana = Math.max(0, e.mana - 25);
+        });
+      } else if (unit.heroId === 'frost') {
+        spawnFloatingText(unit.mesh.position, '절대영도!!', '#22d3ee');
+        enemies.forEach(e => {
+          spawnBurstRing(e.mesh.position, 0x22d3ee, 1.6, 0.45);
+          e.takeDamage(200, '블리자드');
+          e.stunTimer = Math.max(e.stunTimer, 1.8);
+        });
+      }
+    }
+
+    function performBasicAttack(unit, target) {
+      unit.scaleBounce = 1.22;
+      unit.mana = Math.min(unit.maxMana, unit.mana + unit.data.manaGain);
+
+      const isCrit = unit.buffCritTimer > 0;
+      const dmg = isCrit ? unit.atk * 1.6 : unit.atk;
+
+      if (unit.data.range <= 1.6) {
+        // 근접 공격
+        target.takeDamage(dmg, isCrit ? 'CRIT!' : '');
+        spawnBurstRing(target.mesh.position, unit.data.color, 0.9, 0.25);
+
+        if (unit.heroId === 'reinhardt') {
+          // 해머 주변 스플래시
+          units.forEach(e => {
+            if (e.alive && e.team !== unit.team && e !== target) {
+              if (e.mesh.position.distanceTo(target.mesh.position) < 2.2) {
+                e.takeDamage(dmg * 0.45);
+              }
+            }
+          });
+        }
+      } else {
+        // 원거리 투사체 발사
+        const projGeo = new THREE.SphereGeometry(0.16, 10, 10);
+        const projMat = new THREE.MeshBasicMaterial({ color: unit.data.color });
+        const projMesh = new THREE.Mesh(projGeo, projMat);
+        projMesh.position.copy(unit.mesh.position);
+        projMesh.position.y = 1.05;
+        scene.add(projMesh);
+
+        projectiles.push({
+          mesh: projMesh,
+          attacker: unit,
+          target,
+          dmg,
+          isCrit,
+          speed: 13.5
+        });
+
+        // 세라핀 고유 평타 효과: 아군 소량 치유
+        if (unit.heroId === 'seraphine') {
+          const allies = units.filter(a => a.alive && a.team === unit.team);
+          if (allies.length > 0) {
+            allies.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+            allies[0].heal(45);
+          }
+        }
+      }
+    }
+
+    // 매치당 1회 특수 능력 발동 (Overdrive)
+    function triggerOncePerMatchSpecial(heroId) {
+      if (state.usedSpecialsInMatch.has(heroId)) return;
+      const caster = units.find(u => u.team === 'ALLY' && u.heroId === heroId);
+      if (!caster) return;
+
+      // 전투 중이 아니어도 배치 단계에서 누르면 즉시 전투를 시작하며 발동
+      if (state.phase === 'PREP') {
+        startBattleRound();
+      }
+      if (state.phase !== 'BATTLE') return;
+
+      state.usedSpecialsInMatch.add(heroId);
+      const allies = units.filter(u => u.alive && u.team === 'ALLY');
+      const enemies = units.filter(u => u.alive && u.team === 'ENEMY');
+
+      showBanner(`${CHARACTERS[heroId].specialName}!`, CHARACTERS[heroId].specialShort, 1200);
+
+      if (heroId === 'hanzo') {
+        allies.forEach(a => {
+          a.buffCritTimer = 6.0;
+          a.atkSpeed *= 1.5;
+          spawnBurstRing(a.mesh.position, 0x38bdf8, 1.8, 0.45);
+        });
+      } else if (heroId === 'reinhardt') {
+        allies.forEach(a => {
+          a.shield += Math.round(a.maxHp * 0.45);
+          spawnFloatingText(a.mesh.position, 'SHIELD +45%', '#fde68a');
+          spawnBurstRing(a.mesh.position, 0xfbbf24, 1.8, 0.45);
+        });
+      } else if (heroId === 'zeno') {
+        if (caster.alive) {
+          caster.heal(caster.maxHp * 0.4);
+          caster.mana = 100;
+          executeUltimate(caster);
+        }
+      } else if (heroId === 'seraphine') {
+        const deadAlly = units.find(u => !u.alive && u.team === 'ALLY');
+        if (deadAlly) {
+          deadAlly.alive = true;
+          deadAlly.hp = Math.round(deadAlly.maxHp * 0.65);
+          deadAlly.mesh.visible = true;
+          deadAlly.scaleBounce = 1.5;
+          spawnFloatingText(deadAlly.mesh.position, '부활 (REVIVED)!', '#34d399');
+          spawnBurstRing(deadAlly.mesh.position, 0x34d399, 2.5, 0.5);
+        } else {
+          allies.forEach(a => a.heal(450));
+        }
+      } else if (heroId === 'volt') {
+        enemies.forEach(e => {
+          e.mana = 0;
+          e.takeDamage(150, 'EMP 소각!');
+          spawnBurstRing(e.mesh.position, 0x60a5fa, 1.8, 0.4);
+        });
+      } else if (heroId === 'frost') {
+        enemies.forEach(e => {
+          e.stunTimer = Math.max(e.stunTimer, 3.0);
+          e.takeDamage(120, '빙하 감옥!');
+          spawnBurstRing(e.mesh.position, 0x22d3ee, 1.8, 0.5);
+        });
+      }
+
+      updateUI();
+    }
+
+    /**************************************************************
+     * 9. 쫀득한 3D 드래그 앤 드롭 배치 인터랙션
+     **************************************************************/
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const dragIntersect = new THREE.Vector3();
+
+    let draggedUnit = null;
+    let hoveredTile = null;
+
+    function updateMouseCoords(e) {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+    }
+
+    function onPointerDown(e) {
+      if (state.phase !== 'PREP') return;
+      if (e.target.closest('#top-hud, #bottom-dock, #stage-selector, #codex-modal')) return;
+
+      updateMouseCoords(e);
+      raycaster.setFromCamera(mouse, camera);
+
+      const allyMeshes = units.filter(u => u.team === 'ALLY').map(u => u.mesh);
+      const intersects = raycaster.intersectObjects(allyMeshes, true);
+
+      if (intersects.length > 0) {
+        let obj = intersects[0].object;
+        while (obj.parent && !obj.userData.unit) obj = obj.parent;
+        if (obj.userData.unit && obj.userData.unit.team === 'ALLY') {
+          draggedUnit = obj.userData.unit;
+          draggedUnit.scaleBounce = 1.35;
+          document.body.style.cursor = 'grabbing';
+        }
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!draggedUnit || state.phase !== 'PREP') return;
+      updateMouseCoords(e);
+      raycaster.setFromCamera(mouse, camera);
+
+      if (raycaster.ray.intersectPlane(dragPlane, dragIntersect)) {
+        // 드래그 중 공중 부양 목표 위치
+        draggedUnit.targetPos.set(dragIntersect.x, 0.75, dragIntersect.z);
+
+        // 가장 가까운 아군 3x3 타일 탐색
+        let closest = null;
+        let minDist = 1.35;
+        allyTiles.forEach(tile => {
+          const d = new THREE.Vector2(dragIntersect.x, dragIntersect.z)
+            .distanceTo(new THREE.Vector2(tile.position.x, tile.position.z));
+          if (d < minDist) {
+            minDist = d;
+            closest = tile;
+          }
+        });
+
+        hoveredTile = closest;
+        if (hoveredTile) {
+          hoverRing.visible = true;
+          hoverRing.position.set(hoveredTile.position.x, 0.1, hoveredTile.position.z);
+        } else {
+          hoverRing.visible = false;
+        }
+      }
+    }
+
+    function onPointerUp() {
+      if (!draggedUnit) return;
+
+      if (hoveredTile) {
+        const newRow = hoveredTile.userData.row;
+        const newCol = hoveredTile.userData.col;
+        const oldRow = draggedUnit.row;
+        const oldCol = draggedUnit.col;
+
+        // 해당 타일에 이미 다른 아군이 있는지 확인 (위치 스왑)
+        const occupant = units.find(
+          u => u.team === 'ALLY' && u !== draggedUnit && u.row === newRow && u.col === newCol
+        );
+
+        if (occupant) {
+          occupant.row = oldRow;
+          occupant.col = oldCol;
+          occupant.targetPos.copy(getTileWorldPos('ALLY', oldRow, oldCol));
+          occupant.scaleBounce = 1.28;
+        }
+
+        draggedUnit.row = newRow;
+        draggedUnit.col = newCol;
+
+        // state.allyFormation 동기화
+        state.allyFormation = units
+          .filter(u => u.team === 'ALLY')
+          .map(u => ({ id: u.heroId, row: u.row, col: u.col }));
+
+        spawnBurstRing(getTileWorldPos('ALLY', newRow, newCol), draggedUnit.data.color, 1.1, 0.3);
+      }
+
+      // 쫀득하게 원래/새 타일로 착지
+      draggedUnit.targetPos.copy(getTileWorldPos('ALLY', draggedUnit.row, draggedUnit.col));
+      draggedUnit.scaleBounce = 1.38;
+      draggedUnit = null;
+      hoveredTile = null;
+      hoverRing.visible = false;
+      document.body.style.cursor = 'default';
+    }
+
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+    window.addEventListener('touchstart', onPointerDown, { passive: true });
+    window.addEventListener('touchmove', onPointerMove, { passive: true });
+    window.addEventListener('touchend', onPointerUp);
+
+    /**************************************************************
+     * 10. 라운드 & 3판 2선승제(Bo3) 진행 흐름
+     **************************************************************/
+    function showBanner(title, sub, duration = 1500) {
+      const banner = document.getElementById('center-banner');
+      document.getElementById('banner-title').textContent = title;
+      document.getElementById('banner-sub').textContent = sub;
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), duration);
+    }
+
+    function startBattleRound() {
+      if (state.phase !== 'PREP') return;
+      if (state.allyFormation.length === 0) {
+        showBanner('유닛을 배치하세요!', '최소 1명 이상의 캐릭터가 3×3 보드에 있어야 합니다.');
+        return;
+      }
+      state.phase = 'BATTLE';
+      showBanner(`ROUND ${state.round} START`, '전투가 시작됩니다!');
+      updateUI();
+    }
+
+    function checkRoundEnd() {
+      if (state.phase !== 'BATTLE') return;
+      const alliesAlive = units.some(u => u.alive && u.team === 'ALLY');
+      const enemiesAlive = units.some(u => u.alive && u.team === 'ENEMY');
+
+      if (!alliesAlive || !enemiesAlive) {
+        state.phase = 'ROUND_END';
+        const allyWonRound = alliesAlive && !enemiesAlive;
+
+        if (allyWonRound) {
+          state.allyWins++;
+          showBanner(`ROUND ${state.round} 승리!`, '아군 진영이 라운드를 가져갑니다.', 1800);
+        } else {
+          state.enemyWins++;
+          showBanner(`ROUND ${state.round} 패배`, '전열을 가다듬고 다음 라운드를 준비하세요.', 1800);
+        }
+
+        updateUI();
+
+        setTimeout(() => {
+          // 3판 2선승 판정
+          if (state.allyWins >= 2) {
+            state.clearedStages.add(state.currentStageIdx);
+            if (state.currentStageIdx < STAGES.length - 1) {
+              showBanner('STAGE CLEAR!!', '3판 2선승 달성! 다음 스테이지로 이동합니다.', 2200);
+              setTimeout(() => loadStage(state.currentStageIdx + 1), 2200);
+            } else {
+              showBanner('ALL STAGES CLEARED! 🏆', '축하합니다! 모든 스테이지를 제패했습니다.', 3000);
+              setTimeout(() => loadStage(0), 3200);
+            }
+          } else if (state.enemyWins >= 2) {
+            showBanner('MATCH DEFEAT', '적에게 2선승을 내주었습니다. 스테이지를 재도전합니다.', 2200);
+            setTimeout(() => loadStage(state.currentStageIdx), 2200);
+          } else {
+            // 다음 라운드 배치 단계로 복귀
+            state.round++;
+            state.phase = 'PREP';
+            spawnBoardFromState();
+          }
+        }, 1900);
+      }
+    }
+
+    function loadStage(stageIdx) {
+      state.currentStageIdx = stageIdx;
+      state.round = 1;
+      state.allyWins = 0;
+      state.enemyWins = 0;
+      state.phase = 'PREP';
+      state.usedSpecialsInMatch.clear();
+
+      // 스테이지 최대 인원수 초과 시 자동 조정
+      const maxU = STAGES[stageIdx].maxAllyUnits;
+      if (state.allyFormation.length > maxU) {
+        state.allyFormation = state.allyFormation.slice(0, maxU);
+      }
+
+      spawnBoardFromState();
+      showBanner(STAGES[stageIdx].name, `3판 2선승제 · 최대 ${maxU}명 배치 가능`, 1700);
+    }
+
+    /**************************************************************
+     * 11. UI 렌더링 및 도감(Codex) 업데이트
+     **************************************************************/
+    function toggleHeroDeployment(heroId) {
+      if (state.phase !== 'PREP') return;
+      const stageData = STAGES[state.currentStageIdx];
+      const existingIdx = state.allyFormation.findIndex(s => s.id === heroId);
+
+      if (existingIdx !== -1) {
+        if (state.allyFormation.length <= 1) {
+          showBanner('최소 1명 배치 필요', '보드에 최소 1명의 캐릭터는 남아있어야 합니다.', 1200);
+          return;
+        }
+        state.allyFormation.splice(existingIdx, 1);
+      } else {
+        if (state.allyFormation.length >= stageData.maxAllyUnits) {
+          showBanner('배치 인원 초과', `현재 스테이지는 최대 ${stageData.maxAllyUnits}명까지 배치할 수 있습니다.`, 1300);
+          return;
+        }
+        // 빈 타일 찾기
+        let found = null;
+        for (let c = 2; c >= 0 && !found; c--) {
+          for (let r = 0; r < 3 && !found; r++) {
+            const occupied = state.allyFormation.some(s => s.row === r && s.col === c);
+            if (!occupied) found = { row: r, col: c };
+          }
+        }
+        if (found) {
+          state.allyFormation.push({ id: heroId, row: found.row, col: found.col });
+        }
+      }
+      spawnBoardFromState();
+    }
+
+    function updateUI() {
+      const stageData = STAGES[state.currentStageIdx];
+      document.getElementById('stage-title-pill').textContent = `STAGE ${stageData.stage}`;
+      document.getElementById('round-text').textContent = `ROUND ${state.round} · 3판 2선승`;
+      document.getElementById('phase-text').textContent =
+        state.phase === 'PREP' ? '배치 단계 (PREP)' : state.phase === 'BATTLE' ? '전투 진행 중 (LIVE)' : '라운드 종료';
+
+      document.getElementById('deploy-count-text').textContent =
+        `배치: ${state.allyFormation.length} / ${stageData.maxAllyUnits}`;
+
+      // 승점 Pip 업데이트
+      const allyPips = document.getElementById('ally-pips').children;
+      const enemyPips = document.getElementById('enemy-pips').children;
+      for (let i = 0; i < 2; i++) {
+        allyPips[i].className = i < state.allyWins ? 'pip won-ally' : 'pip';
+        enemyPips[i].className = i < state.enemyWins ? 'pip won-enemy' : 'pip';
+      }
+
+      // 상단 스테이지 선택 바
+      const stageSel = document.getElementById('stage-selector');
+      stageSel.innerHTML = '';
+      STAGES.forEach((s, idx) => {
+        const btn = document.createElement('div');
+        btn.className = `stage-node ${idx === state.currentStageIdx ? 'active' : ''} ${state.clearedStages.has(idx) ? 'cleared' : ''}`;
+        btn.textContent = `STAGE ${s.stage}${state.clearedStages.has(idx) ? ' ✓' : ''}`;
+        btn.onclick = () => loadStage(idx);
+        stageSel.appendChild(btn);
+      });
+
+      // 하단 1회 한정 특수능력 카드 바
+      const specialContainer = document.getElementById('special-cards-container');
+      specialContainer.innerHTML = '';
+      Object.values(CHARACTERS).forEach(hero => {
+        const isDeployed = state.allyFormation.some(s => s.id === hero.id);
+        const isUsed = state.usedSpecialsInMatch.has(hero.id);
+
+        const card = document.createElement('div');
+        card.className = `special-card ${isUsed ? 'used' : isDeployed ? 'ready' : 'not-deployed'}`;
+        card.innerHTML = `
+          <div class="sc-top">
+            <span style="color:${hero.accentHex}">${hero.name.split(' ')[0]}</span>
+            <span class="sc-badge ${isUsed ? 'used' : 'ready'}">${isUsed ? '사용 완료' : isDeployed ? '발동 가능' : '미배치'}</span>
+          </div>
+          <div class="sc-skill-name">${hero.specialName}</div>
+          <div class="sc-skill-sub">${hero.specialShort}</div>
+        `;
+        if (isDeployed && !isUsed) {
+          card.onclick = () => triggerOncePerMatchSpecial(hero.id);
+        }
+        specialContainer.appendChild(card);
+      });
+
+      // 하단 캐릭터 로스터(배치/해제) 바
+      const rosterContainer = document.getElementById('roster-container');
+      rosterContainer.innerHTML = '';
+      Object.values(CHARACTERS).forEach(hero => {
+        const deployed = state.allyFormation.some(s => s.id === hero.id);
+        const card = document.createElement('div');
+        card.className = `unit-card ${deployed ? 'deployed' : ''}`;
+        card.innerHTML = `
+          <div class="uc-header">
+            <span class="uc-name"><span class="uc-dot" style="background:${hero.accentHex}"></span>${hero.name.split(' ')[0]}</span>
+            <span class="uc-role">${hero.role.split('·')[0]}</span>
+          </div>
+          <div class="uc-desc">${hero.ultName.split('(')[0]}</div>
+          <div class="uc-status">${deployed ? '✓ 보드 배치됨 (클릭 시 해제)' : '+ 클릭하여 보드 배치'}</div>
+        `;
+        card.onclick = () => toggleHeroDeployment(hero.id);
+        rosterContainer.appendChild(card);
+      });
+
+      const startBtn = document.getElementById('btn-start-round');
+      startBtn.disabled = state.phase !== 'PREP';
+      startBtn.textContent = state.phase === 'PREP' ? '전투 시작 (FIGHT)' : '전투 진행 중...';
+    }
+
+    // 캐릭터 도감(Codex) 렌더링
+    function renderCodex() {
+      const tabsEl = document.getElementById('codex-tabs');
+      const detailEl = document.getElementById('codex-detail');
+      tabsEl.innerHTML = '';
+
+      Object.values(CHARACTERS).forEach(hero => {
+        const tab = document.createElement('div');
+        tab.className = `codex-tab ${state.activeCodexHero === hero.id ? 'active' : ''}`;
+        tab.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="uc-dot" style="background:${hero.accentHex}; width:12px; height:12px;"></span>
+            <div>
+              <div style="font-weight:800; font-size:14px;">${hero.name}</div>
+              <div style="font-size:11px; color:var(--text-sub);">${hero.role}</div>
+            </div>
+          </div>
+          <span style="font-size:12px; color:var(--text-sub);">→</span>
+        `;
+        tab.onclick = () => {
+          state.activeCodexHero = hero.id;
+          renderCodex();
+        };
+        tabsEl.appendChild(tab);
+      });
+
+      const h = CHARACTERS[state.activeCodexHero];
+      detailEl.innerHTML = `
+        <div class="cd-top">
+          <div>
+            <div class="cd-title">
+              <span class="uc-dot" style="background:${h.accentHex}; width:16px; height:16px;"></span>
+              ${h.name}
+            </div>
+            <div class="cd-lore">${h.lore}</div>
+          </div>
+          <span class="stage-pill">${h.role}</span>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">최대 체력 (HP)</div>
+            <div class="stat-val">${h.hp}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">기본 공격력 (ATK)</div>
+            <div class="stat-val">${h.atk}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">공격 속도 (AS)</div>
+            <div class="stat-val">${h.atkSpeed}/s</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">사거리 (RANGE)</div>
+            <div class="stat-val">${h.range > 2 ? '원거리 (' + h.range + '칸)' : '근접 (1칸)'}</div>
+          </div>
+        </div>
+
+        <div class="skill-section">
+          <div class="skill-box">
+            <span class="sb-tag">고유 일반 공격 (BASIC ATTACK)</span>
+            <div class="sb-title">${h.basicName}</div>
+            <div class="sb-desc">${h.basicDesc}</div>
+          </div>
+
+          <div class="skill-box ult">
+            <span class="sb-tag" style="color:#38bdf8;">궁극기 (ULTIMATE · 마나 100 충전 시 자동 시전)</span>
+            <div class="sb-title" style="color:#bae6fd;">${h.ultName}</div>
+            <div class="sb-desc">${h.ultDesc}</div>
+          </div>
+
+          <div class="skill-box once">
+            <span class="sb-tag" style="color:#fbbf24;">★ 매치당 1회 특수 능력 (OVERDRIVE · 수동 발동)</span>
+            <div class="sb-title" style="color:#fde68a;">${h.specialName}</div>
+            <div class="sb-desc">${h.specialDesc}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 버튼 이벤트 바인딩
+    document.getElementById('btn-start-round').onclick = startBattleRound;
+    document.getElementById('btn-reset-stage').onclick = () => loadStage(state.currentStageIdx);
+
+    document.getElementById('btn-speed').onclick = (e) => {
+      state.gameSpeed = state.gameSpeed === 1 ? 2 : 1;
+      e.target.textContent = `배속: ${state.gameSpeed}x`;
+    };
+
+    document.getElementById('btn-camera').onclick = () => {
+      state.cameraPreset = (state.cameraPreset + 1) % CAMERA_PRESETS.length;
+    };
+
+    document.getElementById('btn-codex').onclick = () => {
+      renderCodex();
+      document.getElementById('codex-modal').classList.add('open');
+    };
+
+    document.getElementById('btn-close-codex').onclick = () => {
+      document.getElementById('codex-modal').classList.remove('open');
+    };
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /**************************************************************
+     * 12. 메인 애니메이션 & 물리 루프
+     **************************************************************/
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const rawDt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      const dt = rawDt * state.gameSpeed;
+
+      // 카메라 부드러운 전환
+      const camTarget = CAMERA_PRESETS[state.cameraPreset];
+      camera.position.lerp(camTarget.pos, 0.06);
+      camera.lookAt(camTarget.look);
+
+      // 유닛 업데이트
+      units.forEach(u => {
+        if (!u.alive) {
+          u.updateHUD();
+          return;
+        }
+
+        // 1) 배치 단계 또는 드래그 중: 스프링 탄성 이동 & 속도 비례 기울기(Tilt)
+        if (state.phase !== 'BATTLE') {
+          const prevPos = u.mesh.position.clone();
+          u.mesh.position.lerp(u.targetPos, 0.22);
+          u.velocity.subVectors(u.mesh.position, prevPos);
+
+          // 쫀득한 틸트 효과
+          u.mesh.rotation.z = THREE.MathUtils.lerp(u.mesh.rotation.z, -u.velocity.x * 1.6, 0.25);
+          u.mesh.rotation.x = THREE.MathUtils.lerp(u.mesh.rotation.x, u.velocity.z * 1.6, 0.25);
+        } else {
+          // 2) 전투 단계 AI
+          u.mesh.rotation.z = THREE.MathUtils.lerp(u.mesh.rotation.z, 0, 0.2);
+          u.mesh.rotation.x = THREE.MathUtils.lerp(u.mesh.rotation.x, 0, 0.2);
+
+          if (u.buffCritTimer > 0) u.buffCritTimer -= dt;
+
+          if (u.stunTimer > 0) {
+            u.stunTimer -= dt;
+          } else {
+            const { target, dist } = findNearestEnemy(u);
+            if (target) {
+              // 적 방향 바라보기
+              const angle = Math.atan2(
+                target.mesh.position.z - u.mesh.position.z,
+                target.mesh.position.x - u.mesh.position.x
+              );
+              u.mesh.rotation.y = -angle;
+
+              if (dist > u.range) {
+                // 사거리 밖이면 적을 향해 전진
+                const moveDir = new THREE.Vector3()
+                  .subVectors(target.mesh.position, u.mesh.position)
+                  .normalize();
+                u.mesh.position.addScaledVector(moveDir, dt * 2.5);
+              } else {
+                // 사거리 안이면 궁극기 또는 일반 공격
+                if (u.mana >= u.maxMana) {
+                  executeUltimate(u);
+                } else {
+                  u.atkCooldown -= dt;
+                  if (u.atkCooldown <= 0) {
+                    performBasicAttack(u, target);
+                    u.atkCooldown = 1 / u.atkSpeed;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // 탄성 스케일 복원 (쫀득한 바운스)
+        u.scaleBounce = THREE.MathUtils.lerp(u.scaleBounce, 1.0, 0.16);
+        u.mesh.scale.set(
+          1 / Math.sqrt(u.scaleBounce),
+          u.scaleBounce,
+          1 / Math.sqrt(u.scaleBounce)
+        );
+
+        u.updateHUD();
+      });
+
+      // 투사체 업데이트
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        if (!p.target.alive) {
+          scene.remove(p.mesh);
+          projectiles.splice(i, 1);
+          continue;
+        }
+        const targetPos = p.target.mesh.position.clone();
+        targetPos.y = 1.0;
+        const dir = new THREE.Vector3().subVectors(targetPos, p.mesh.position);
+        const dist = dir.length();
+
+        if (dist < 0.45) {
+          p.target.takeDamage(p.dmg, p.isCrit ? 'CRIT!' : '');
+          // 볼트 고유 연쇄 번개 평타
+          if (p.attacker.heroId === 'volt') {
+            const extra = units.find(
+              e => e.alive && e.team !== p.attacker.team && e !== p.target &&
+              e.mesh.position.distanceTo(p.target.mesh.position) < 3.0
+            );
+            if (extra) {
+              extra.takeDamage(p.dmg * 0.55, '연쇄감전');
+              spawnBurstRing(extra.mesh.position, 0x60a5fa, 0.8, 0.25);
+            }
+          }
+          scene.remove(p.mesh);
+          projectiles.splice(i, 1);
+        } else {
+          dir.normalize();
+          p.mesh.position.addScaledVector(dir, dt * p.speed);
+        }
+      }
+
+      // VFX 이펙트 업데이트
+      for (let i = vfxList.length - 1; i >= 0; i--) {
+        const keep = vfxList[i].update(dt);
+        if (!keep) {
+          scene.remove(vfxList[i].mesh);
+          vfxList.splice(i, 1);
+        }
+      }
+
+      if (state.phase === 'BATTLE') {
+        checkRoundEnd();
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // 초기화 및 시작
+    loadStage(0);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
