@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마인크래프트 한국형 지하철역 3D/2D 설계도 뷰어</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+    
+    /* UI 패널 공통 (글래스모피즘) */
+    .panel {
+      position: absolute;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    /* 좌측 상단: 컨트롤 & 층별 슬라이더 */
+    #control-panel {
+      top: 16px;
+      left: 16px;
+      width: 340px;
+      max-height: calc(100vh - 32px);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+    .title-area h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #4ade80;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .title-area p { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    
+    .control-group {
+      background: rgba(30, 41, 59, 0.7);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .layer-badge {
+      background: #22c55e;
+      color: #052e16;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #22c55e;
+      cursor: pointer;
+    }
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    button {
+      flex: 1;
+      background: #334155;
+      color: #f1f5f9;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { background: #475569; }
+    button.active { background: #22c55e; color: #052e16; border-color: #4ade80; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .checkbox-row input { width: 16px; height: 16px; accent-color: #22c55e; cursor: pointer; }
+
+    /* 재료 리스트 (BOM) */
+    .bom-list {
+      max-height: 220px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 4px;
+    }
+    .bom-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 4px 6px;
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 4px;
+    }
+    .bom-left { display: flex; align-items: center; gap: 8px; }
+    .color-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.4);
+      flex-shrink: 0;
+    }
+    .bom-count { font-weight: 700; color: #38bdf8; }
+
+    /* 우측 패널: 2D 층별 그리드 설계도 */
+    #grid-panel {
+      top: 16px;
+      right: 16px;
+      width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #grid-canvas-wrap {
+      position: relative;
+      background: #090d16;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #grid-canvas {
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+    #hover-info {
+      font-size: 12px;
+      color: #cbd5e1;
+      background: rgba(30, 41, 59, 0.8);
+      padding: 8px 10px;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .layer-desc {
+      font-size: 12px;
+      color: #fef08a;
+      line-height: 1.4;
+      background: rgba(234, 179, 8, 0.12);
+      border-left: 3px solid #eab308;
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    /* 하단 조작 가이드 */
+    #help-bar {
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      font-size: 12px;
+      color: #cbd5e1;
+      display: flex;
+      gap: 16px;
+      white-space: nowrap;
+    }
+    .key-hint { color: #4ade80; font-weight: 700; }
+
+    /* 스크롤바 스타일 */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  </style>
+  <!-- Three.js & OrbitControls CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <!-- 좌측 컨트롤 및 재료 패널 -->
+  <div id="control-panel" class="panel">
+    <div class="title-area">
+      <h1>🚇 한국형 지하철역 설계도</h1>
+      <p>규격: 가로 31 × 세로 21 × 높이 18 (왕복 복선 & 상대식)</p>
+    </div>
+
+    <div class="control-group">
+      <div class="control-header">
+        <span>층별 슬라이스 (Y축 높이)</span>
+        <span id="layer-label" class="layer-badge">Y = 17 (전체 보기)</span>
+      </div>
+      <input type="range" id="layer-slider" min="0" max="17" value="17">
+      <div class="btn-row">
+        <button id="btn-prev">▼ 아래층</button>
+        <button id="btn-next">▲ 위층</button>
+        <button id="btn-all" class="active">전체 층</button>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-single">
+        <span><strong>단일 층만 보기</strong> (현재 층 블록만 3D에 표시)</span>
+      </label>
+    </div>
+
+    <div class="control-group">
+      <div class="control-header">
+        <span>구역별 빠른 이동</span>
+      </div>
+      <div class="btn-row">
+        <button onclick="setLayerPreset(4, false)">B2 승강장 (Y=4)</button>
+        <button onclick="setLayerPreset(10, false)">B1 대합실 (Y=10)</button>
+        <button onclick="setLayerPreset(17, false)">1F 지상역사 (Y=17)</button>
+      </div>
+    </div>
+
+    <div id="layer-guide" class="layer-desc">
+      슬라이더를 조절하면 각 층의 시공 포인트가 여기에 표시됩니다.
+    </div>
+
+    <div class="control-group" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+      <div class="control-header">
+        <span id="bom-title">📦 전체 필요 재료 (BOM)</span>
+        <span id="total-blocks" style="color:#94a3b8; font-size:11px;">0 블록</span>
+      </div>
+      <div id="bom-container" class="bom-list"></div>
+    </div>
+  </div>
+
+  <!-- 우측 2D 그리드 단면도 패널 -->
+  <div id="grid-panel" class="panel">
+    <div class="control-header" style="margin-bottom:0;">
+      <span>📐 2D 층별 그리드 설계도 (위에서 본 평면도)</span>
+      <span id="grid-layer-title" style="color:#4ade80; font-size:12px;">Y = 17</span>
+    </div>
+    <div id="grid-canvas-wrap">
+      <canvas id="grid-canvas" width="403" height="273"></canvas>
+    </div>
+    <div id="hover-info">
+      <span id="coord-text">마우스를 그리드 위에 올리세요</span>
+      <span id="block-text" style="font-weight:700; color:#4ade80;">-</span>
+    </div>
+  </div>
+
+  <!-- 하단 조작 안내 -->
+  <div id="help-bar" class="panel">
+    <span><span class="key-hint">좌클릭 드래그:</span> 3D 회전</span>
+    <span><span class="key-hint">우클릭 드래그:</span> 화면 이동</span>
+    <span><span class="key-hint">마우스 휠:</span> 확대/축소</span>
+    <span><span class="key-hint">우측 2D 그리드:</span> 층별 정확한 블록 좌표 확인</span>
+  </div>
+
+<script>
+// ==========================================
+// 1. 블록 팔레트 정의 (이름, 색상, 투명도 등)
+// ==========================================
+const BLOCKS = {
+  0:  { name: '공기 (비어있음)', color: null },
+  1:  { name: '심층암 타일 (외벽/하부)', color: '#27272a' },
+  2:  { name: '안산암 (승강장/보도 바닥)', color: '#71717a' },
+  3:  { name: '매끄러운 돌 (대합실 바닥)', color: '#a1a1aa' },
+  4:  { name: '하얀색 콘크리트 (내벽)', color: '#f8fafc' },
+  5:  { name: '회색 콘크리트 (터널벽)', color: '#475569' },
+  6:  { name: '노란색 콘크리트 (점자블록)', color: '#facc15' },
+  7:  { name: '연두색 콘크리트 (2호선 띠)', color: '#22c55e' },
+  8:  { name: '매끄러운 석영 블록 (기둥)', color: '#fff1f2' },
+  9:  { name: '석영 계단 (층간 이동)', color: '#ffe4e6' },
+  10: { name: '철 블록 (스크린도어/프레임)', color: '#cbd5e1' },
+  11: { name: '검은색 색유리 (스크린도어)', color: '#1e293b', opacity: 0.55 },
+  12: { name: '청록색 색유리 (캐노피 지붕)', color: '#06b6d4', opacity: 0.5 },
+  13: { name: '자갈 (선로 도상)', color: '#52525b' },
+  14: { name: '일반 레일 (철도)', color: '#b45309', scaleY: 0.15 },
+  15: { name: '동력 레일 (가속 철도)', color: '#ef4444', scaleY: 0.15 },
+  16: { name: '바다 랜턴 (천장 형광등)', color: '#67e8f9', emissive: true },
+  17: { name: '모루 (선로 중앙 디테일)', color: '#18181b', scaleX: 0.6, scaleZ: 0.6 },
+  18: { name: '철 다락문 (개찰구 플랩)', color: '#94a3b8', scaleY: 0.25 },
+  19: { name: '철창 (아트리움 난간)', color: '#64748b', scaleX: 0.3, scaleZ: 0.3 },
+  20: { name: '가문비나무 계단 (승강장 벤치)', color: '#78350f', scaleY: 0.6 },
+  21: { name: '랜턴 (터널/역사 조명)', color: '#fbbf24', scaleX: 0.4, scaleY: 0.5, scaleZ: 0.4 },
+  22: { name: '파란색 콘크리트 (발권기/안내판)', color: '#2563eb' },
+  23: { name: '잔디 블록 (지상 조경)', color: '#15803d' }
+};
+
+// 층별 시공 설명 텍스트
+const LAYER_GUIDES = {
+  0:  "Y=0 [지하 2층 바닥]: 전체 바닥 기초공사입니다. 중앙(Z=8~12) 선로 구역은 심층암 타일로 한 칸 낮게 깔고, 양옆 승강장은 안산암으로 채웁니다.",
+  1:  "Y=1 [승강장 바닥 & 선로]: 상행(Z=9)·하행(Z=11) 레일과 동력 레일을 깔고, 승강장 가장자리(Z=6, 14)에 노란색 점자블록과 스크린도어 하단 프레임을 배치합니다.",
+  2:  "Y=2 [스크린도어 & 기둥]: 검은색 색유리로 스크린도어를 세우고(열차 문 4곳은 개방), 석영 기둥과 나무 벤치, 대합실행 계단 시작부를 만듭니다.",
+  3:  "Y=3 [2호선 노선 띠 & 역명판]: 벽면과 석영 기둥에 연두색 콘크리트를 둘러 한국 지하철 특유의 노선 컬러와 역명판을 표현합니다.",
+  4:  "Y=4 [스크린도어 상단 광고판]: 스크린도어 맨 윗줄을 하얀색 콘크리트와 바다 랜턴으로 연결해 역 방향 안내판 및 조명을 완성합니다.",
+  5:  "Y=5 [지하 2층 천장]: 바다 랜턴(형광등)이 매립된 천장입니다. 계단 통로와 중앙 아트리움 구멍은 위층과 연결되도록 비워둡니다.",
+  6:  "Y=6 [지하 1층 대합실 바닥]: 매끄러운 돌로 대합실 바닥을 깔고, 중앙 개방부(아트리움) 테두리와 개찰구 위치에 노란색 유도선을 넣습니다.",
+  7:  "Y=7 [개찰구 & 아트리움 난간]: 석영 블록과 철 다락문으로 교통카드 개찰구를 만들고, 중앙 개방부에 철창 난간을 둘러 추락을 방지합니다.",
+  8:  "Y=8 [무인 발권기 & 내벽]: 벽면에 파란색 콘크리트와 조명으로 무인 발권기·노선도를 표현하고, 지상 출구로 향하는 계단을 올립니다.",
+  9:  "Y=9 [대합실 노선 띠]: 대합실 벽면과 기둥에도 연두색 콘크리트 띠를 둘러 통일감을 줍니다.",
+  10: "Y=10 [대합실 상부 공간]: 높은 층고를 확보하여 지하역 특유의 답답함을 없애고 개방감을 줍니다.",
+  11: "Y=11 [지하 1층 천장 / 지표면 하부]: 대합실 천장 조명(바다 랜턴)을 매립하고, 지상 출구로 이어지는 양쪽 계단 구멍만 남겨둡니다.",
+  12: "Y=12 [지상 광장 바닥]: 지상으로 나왔습니다! 보도블록(안산암/매끄러운 돌)과 화단(잔디), 중앙 유리 채광창(스카이라이트)을 만듭니다.",
+  13: "Y=13 [지상 출입구 외벽 1단]: 지하 계단 입구를 감싸는 철제 프레임과 청록색 유리 캐노피 벽면을 세웁니다.",
+  14: "Y=14 [지상 출입구 외벽 2단]: 출구 입구 앞쪽에 한국 지하철 특유의 폴사인(기둥 표지판)을 세웁니다.",
+  15: "Y=15 [출입구 간판 & 폴사인]: 출입구 정면 상단과 폴사인 꼭대기에 연두색 콘크리트와 조명으로 역 이름을 강조합니다.",
+  16: "Y=16 [캐노피 지붕 1단]: 비를 막아주는 현대식 청록색 유리 캐노피 지붕을 덮습니다.",
+  17: "Y=17 [캐노피 최상단 마감]: 출입구 지붕 프레임을 마감하여 한국형 지하철역 건축을 완성합니다!"
+};
+
+// ==========================================
+// 2. 3D 월드 배열 생성 (31 x 18 x 21)
+// ==========================================
+const SIZE_X = 31;
+const SIZE_Y = 18;
+const SIZE_Z = 21;
+
+// world[y][z][x]
+const world = Array.from({ length: SIZE_Y }, () =>
+  Array.from({ length: SIZE_Z }, () => Array(SIZE_X).fill(0))
+);
+
+function setBlock(x, y, z, id) {
+  if (x >= 0 && x < SIZE_X && y >= 0 && y < SIZE_Y && z >= 0 && z < SIZE_Z) {
+    world[y][z][x] = id;
+  }
+}
+
+function generateSubwayStation() {
+  // ------------------------------------------
+  // [A] 지하 2층: 승강장 & 왕복 선로 (Y = 0 ~ 5)
+  // ------------------------------------------
+  for (let x = 0; x < SIZE_X; x++) {
+    for (let z = 0; z < SIZE_Z; z++) {
+      // Y=0 기초 바닥
+      setBlock(x, 0, z, 1);
+
+      // 양옆 승강장 바닥 (Y=1)
+      if ((z >= 1 && z <= 6) || (z >= 14 && z <= 19)) {
+        setBlock(x, 1, z, 2); // 안산암 바닥
+        if (x % 6 === 0) setBlock(x, 1, z, 3); // 타일 패턴
+      }
+      // 노란색 안전선 (점자블록)
+      if (z === 6 || z === 14) {
+        if (x >= 1 && x <= SIZE_X - 2) setBlock(x, 1, z, 6);
+      }
+
+      // 중앙 왕복 선로 구역 (Z = 8 ~ 12)
+      if (z === 8 || z === 12) {
+        setBlock(x, 1, z, 1); // 선로 배수로 턱
+      }
+      if (z === 9 || z === 11) {
+        setBlock(x, 0, z, 13); // 자갈 도상
+        // 5칸마다 동력 레일, 나머지는 일반 레일
+        setBlock(x, 1, z, (x % 5 === 0) ? 15 : 14);
+      }
+      if (z === 10) {
+        setBlock(x, 0, z, 1);
+        if (x % 4 === 0) setBlock(x, 1, z, 17); // 중앙 모루 디테일
+        if (x % 8 === 4) setBlock(x, 1, z, 21); // 터널 바닥 작업등
+      }
+    }
+  }
+
+  // 지하 2층 외벽 및 터널 마감 (Y = 1 ~ 4)
+  for (let y = 1; y <= 4; y++) {
+    for (let x = 0; x < SIZE_X; x++) {
+      // 남북 끝벽 (Z=0, Z=20)
+      setBlock(x, y, 0, (y === 3) ? 7 : 4);  // Y=3에 연두색 2호선 띠
+      setBlock(x, y, 20, (y === 3) ? 7 : 4);
+    }
+    for (let z = 0; z < SIZE_Z; z++) {
+      // 동서 끝벽 (X=0, X=30) - 선로 터널(Z=8~12)은 뚫어둠
+      if (z < 8 || z > 12) {
+        setBlock(0, y, z, (y === 3) ? 7 : 4);
+        setBlock(30, y, z, (y === 3) ? 7 : 4);
+      } else if (y === 4) {
+        // 터널 입구 상단 아치 느낌
+        setBlock(0, y, z, 5);
+        setBlock(30, y, z, 5);
+      }
+    }
+  }
+
+  // 스크린도어 (PSD) 설치 (Z = 7, Z = 13, Y = 1 ~ 4)
+  const doorPositions = [5, 6, 12, 13, 17, 18, 24, 25]; // 열차 출입문 4곳 (2칸 폭)
+  for (let x = 1; x <= 29; x++) {
+    [7, 13].forEach(z => {
+      const isDoor = doorPositions.includes(x);
+      const isPillar = (x % 6 === 3);
+
+      // Y=1: 출입문 자리는 비우고 나머지는 철 블록 하단 프레임
+      if (!isDoor) setBlock(x, 1, z, 10);
+
+      // Y=2, 3: 기둥은 철 블록, 문 옆은 유리, 문 자리는 개방
+      for (let y = 2; y <= 3; y++) {
+        if (isPillar) setBlock(x, y, z, 10);
+        else if (!isDoor) setBlock(x, y, z, 11);
+      }
+
+      // Y=4: 스크린도어 상단 안내판 프레임 (철 블록 & 바다랜턴 조명)
+      setBlock(x, 4, z, (x % 4 === 0) ? 16 : 4);
+    });
+  }
+
+  // 승강장 석영 기둥 & 벤치 (Z = 3, Z = 17)
+  const pillarXs = [9, 15, 21];
+  pillarXs.forEach(px => {
+    [3, 17].forEach(pz => {
+      for (let y = 2; y <= 4; y++) {
+        setBlock(px, y, pz, (y === 3) ? 7 : 8); // Y=3은 연두색 역명판
+      }
+      // 기둥 양옆으로 승강장 대기 벤치
+      setBlock(px - 1, 2, pz, 20);
+      setBlock(px + 1, 2, pz, 20);
+    });
+  });
+
+  // 지하 2층 천장 (Y = 5)
+  for (let x = 0; x < SIZE_X; x++) {
+    for (let z = 0; z < SIZE_Z; z++) {
+      setBlock(x, 5, z, 1);
+      // 승강장 천장 매립형 형광등 (바다 랜턴)
+      if ((z === 3 || z === 17) && x >= 3 && x <= 27 && x % 3 === 0) {
+        setBlock(x, 5, z, 16);
+      }
+      // 중앙 아트리움 개방부 (X=11~19, Z=8~12) 천장 뚫기
+      if (x >= 11 && x <= 19 && z >= 8 && z <= 12) {
+        setBlock(x, 5, z, 0);
+      }
+    }
+  }
+
+  // 승강장(B2) -> 대합실(B1) 연결 계단 (양 끝단 4개소)
+  // X = 2 ~ 6 (서쪽 계단), X = 28 ~ 24 (동쪽 계단)
+  for (let step = 0; step < 5; step++) {
+    const y = 2 + step; // Y = 2, 3, 4, 5, 6
+    const xWest = 2 + step;
+    const xEast = 28 - step;
+    [2, 3, 17, 18].forEach(z => {
+      // 계단 위쪽 머리 공간 확보 (공기로 비우기)
+      for (let clearY = y + 1; clearY <= 7; clearY++) {
+        setBlock(xWest, clearY, z, 0);
+        setBlock(xEast, clearY, z, 0);
+      }
+      setBlock(xWest, y, z, 9);
+      setBlock(xEast, y, z, 9);
+    });
+  }
+
+  // ------------------------------------------
+  // [B] 지하 1층: 대합실 & 개찰구 (Y = 6 ~ 11)
+  // ------------------------------------------
+  for (let x = 0; x < SIZE_X; x++) {
+    for (let z = 0; z < SIZE_Z; z++) {
+      // 아트리움 구멍 및 B2 계단 구멍 제외하고 대합실 바닥(Y=6) 깔기
+      const isAtrium = (x >= 11 && x <= 19 && z >= 8 && z <= 12);
+      const isB2StairHole = ((x >= 2 && x <= 6) || (x >= 24 && x <= 28)) && (z === 2 || z === 3 || z === 17 || z === 18);
+
+      if (!isAtrium && !isB2StairHole) {
+        setBlock(x, 6, z, (x % 4 === 0 || z % 4 === 0) ? 2 : 3);
+      }
+      // 아트리움 가장자리 난간(Y=7) 및 안전 유도선(Y=6)
+      if (x >= 10 && x <= 20 && z >= 7 && z <= 13 && !isAtrium) {
+        setBlock(x, 6, z, 6); // 노란 안전선
+        setBlock(x, 7, z, 19); // 철창 난간
+      }
+    }
+  }
+
+  // 지하 1층 외벽 (Y = 7 ~ 10)
+  for (let y = 7; y <= 10; y++) {
+    for (let x = 0; x < SIZE_X; x++) {
+      setBlock(x, y, 0, (y === 9) ? 7 : 4);
+      setBlock(x, y, 20, (y === 9) ? 7 : 4);
+    }
+    for (let z = 0; z < SIZE_Z; z++) {
+      setBlock(0, y, z, (y === 9) ? 7 : 4);
+      setBlock(30, y, z, (y === 9) ? 7 : 4);
+    }
+  }
+
+  // 현대식 개찰구 (Turnstiles) - X = 8, X = 22 라인 (Z = 5 ~ 15)
+  [8, 22].forEach(gx => {
+    for (let z = 5; z <= 15; z++) {
+      setBlock(gx, 6, z, 6); // 개찰구 하단 노란 점자블록
+      if (z % 2 === 1) {
+        setBlock(gx, 7, z, 8);  // 석영 개찰구 본체
+        setBlock(gx, 8, z, 18); // 상단 카드 단말기 디테일
+      } else {
+        setBlock(gx, 7, z, 18); // 철 다락문 플랩 게이트
+      }
+    }
+  });
+
+  // 무인 발권기 & 대형 노선도 (Z = 1, Z = 19 벽면 앞, X = 12 ~ 18)
+  for (let x = 12; x <= 18; x++) {
+    [1, 19].forEach(z => {
+      setBlock(x, 7, z, 10);
+      setBlock(x, 8, z, (x % 2 === 0) ? 22 : 16); // 파란 화면 & 조명
+      setBlock(x, 9, z, 10);
+    });
+  }
+
+  // 대합실 기둥 (X = 8, 22 / Z = 4, 16)
+  [8, 22].forEach(px => {
+    [4, 16].forEach(pz => {
+      for (let y = 7; y <= 10; y++) {
+        setBlock(px, y, pz, (y === 9) ? 7 : 8);
+      }
+    });
+  });
+
+  // 지하 1층 천장 (Y = 11)
+  for (let x = 0; x < SIZE_X; x++) {
+    for (let z = 0; z < SIZE_Z; z++) {
+      setBlock(x, 11, z, 1);
+      if (x >= 3 && x <= 27 && z >= 3 && z <= 17 && x % 4 === 0 && z % 4 === 0) {
+        setBlock(x, 11, z, 16); // 대합실 천장 조명
+      }
+      // 중앙 유리 스카이라이트 구역 (X=13~17, Z=9~11)
+      if (x >= 13 && x <= 17 && z >= 9 && z <= 11) {
+        setBlock(x, 11, z, 12);
+      }
+    }
+  }
+
+  // 대합실(B1) -> 지상(1F) 출입구 계단 (중앙 좌우 2개소: Z = 9 ~ 11)
+  // 서쪽 출구 계단 (X = 6 -> 1), 동쪽 출구 계단 (X = 24 -> 29)
+  for (let step = 0; step < 6; step++) {
+    const y = 7 + step; // Y = 7, 8, 9, 10, 11, 12
+    const xWest = 6 - step;
+    const xEast = 24 + step;
+    for (let z = 9; z <= 11; z++) {
+      for (let clearY = y + 1; clearY <= 15; clearY++) {
+        setBlock(xWest, clearY, z, 0);
+        setBlock(xEast, clearY, z, 0);
+      }
+      setBlock(xWest, y, z, 9);
+      setBlock(xEast, y, z, 9);
+    }
+  }
+
+  // ------------------------------------------
+  // [C] 지상층: 광장, 유리 캐노피 출입구 & 폴사인 (Y = 12 ~ 17)
+  // ------------------------------------------
+  for (let x = 0; x < SIZE_X; x++) {
+    for (let z = 0; z < SIZE_Z; z++) {
+      const isExitHole = ((x >= 1 && x <= 6) || (x >= 24 && x <= 29)) && (z >= 9 && z <= 11);
+      const isSkylight = (x >= 13 && x <= 17 && z >= 9 && z <= 11);
+
+      if (isSkylight) {
+        setBlock(x, 12, z, 12); // 중앙 채광창 유리
+      } else if (!isExitHole) {
+        // 가장자리는 잔디 화단, 안쪽은 지상 광장 보도블록
+        if (z === 0 || z === 20 || x === 0 || x === 30) {
+          setBlock(x, 12, z, 23);
+        } else {
+          setBlock(x, 12, z, ((x + z) % 2 === 0) ? 2 : 3);
+        }
+      }
+    }
+  }
+
+  // 중앙 스카이라이트 테두리 마감
+  for (let x = 12; x <= 18; x++) {
+    for (let z = 8; z <= 12; z++) {
+      if (x === 12 || x === 18 || z === 8 || z === 12) {
+        setBlock(x, 13, z, 8);
+      }
+    }
+  }
+
+  // 지상 유리 캐노피 출입구 2개소 시공 (서쪽 1번 출구: X=1~7, 동쪽 2번 출구: X=23~29, Z=8~12)
+  const buildCanopy = (xStart, xEnd, entranceX) => {
+    for (let x = xStart; x <= xEnd; x++) {
+      for (let z = 8; z <= 12; z++) {
+        const isSideWall = (z === 8 || z === 12);
+        const isBackWall = (x === xStart && entranceX > xStart) || (x === xEnd && entranceX < xEnd);
+        const isFrontEdge = (x === entranceX);
+
+        // Y = 13 ~ 15: 캐노피 기둥 및 유리벽
+        for (let y = 13; y <= 15; y++) {
+          if (isSideWall || isBackWall) {
+            if (x === xStart || x === xEnd || x === Math.floor((xStart + xEnd) / 2)) {
+              setBlock(x, y, z, 10); // 철 기둥 프레임
+            } else {
+              setBlock(x, y, z, 12); // 청록색 색유리 벽면
+            }
+          }
+          // 출구 정면 입구 상단(Y=15): 초록색 노선 간판 ('1번 출구 / 2번 출구')
+          if (isFrontEdge && y === 15 && z >= 9 && z <= 11) {
+            setBlock(x, y, z, 7);
+          }
+        }
+
+        // Y = 16: 캐노피 지붕
+        setBlock(x, 16, z, (isSideWall || isBackWall || isFrontEdge) ? 10 : 12);
+
+        // Y = 17: 지붕 상단 중앙 솟음 디테일
+        if (z >= 9 && z <= 11 && x > xStart && x < xEnd) {
+          setBlock(x, 17, z, 12);
+        }
+      }
+    }
+  };
+
+  buildCanopy(1, 7, 7);   // 1번 출구 (입구가 중앙 X=7을 향함)
+  buildCanopy(23, 29, 23); // 2번 출구 (입구가 중앙 X=23을 향함)
+
+  // 한국 지하철 폴사인(기둥형 역 표지판) - 출입구 옆 배치 (X=8, Z=7 / X=22, Z=13)
+  [[8, 7], [22, 13]].forEach(([px, pz]) => {
+    setBlock(px, 13, pz, 10);
+    setBlock(px, 14, pz, 10);
+    setBlock(px, 15, pz, 7);  // 초록색 지하철 로고
+    setBlock(px, 16, pz, 16); // 상단 발광 조명
+  });
+}
+
+generateSubwayStation();
+
+// ==========================================
+// 3. Three.js 3D 뷰어 초기화 및 InstancedMesh 렌더링
+// ==========================================
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0f172a');
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(28, 26, 34);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 6, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+
+// 조명 설정
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+scene.add(ambientLight);
+
+const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight1.position.set(30, 50, 40);
+scene.add(dirLight1);
+
+const dirLight2 = new THREE.DirectionalLight(0x93c5fd, 0.3);
+dirLight2.position.set(-30, 20, -30);
+scene.add(dirLight2);
+
+// 바닥 기준 그리드
+const gridHelper = new THREE.GridHelper(40, 40, 0x334155, 0x1e293b);
+gridHelper.position.set(0, -0.52, 0);
+scene.add(gridHelper);
+
+// 블록 테두리 질감을 주는 프로시저럴 캔버스 텍스처 생성
+function createBlockTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.strokeStyle = '#d4d4d8';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;
+  return tex;
+}
+const blockTex = createBlockTexture();
+
+// 층별로 메쉬 그룹을 관리하여 슬라이더 조작 시 즉각 반응하도록 구성
+const layerGroups = Array.from({ length: SIZE_Y }, () => new THREE.Group());
+layerGroups.forEach(g => scene.add(g));
+
+const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+const materialsCache = {};
+
+function getMaterial(id) {
+  if (materialsCache[id]) return materialsCache[id];
+  const info = BLOCKS[id];
+  const matProps = {
+    color: new THREE.Color(info.color),
+    map: blockTex,
+    roughness: 0.7,
+    metalness: 0.1
+  };
+  if (info.opacity) {
+    matProps.transparent = true;
+    matProps.opacity = info.opacity;
+  }
+  if (info.emissive) {
+    matProps.emissive = new THREE.Color(info.color);
+    matProps.emissiveIntensity = 0.4;
+  }
+  materialsCache[id] = new THREE.MeshStandardMaterial(matProps);
+  return materialsCache[id];
+}
+
+// 월드 데이터를 기반으로 층별 InstancedMesh 생성
+function build3DMeshes() {
+  const offsetX = -Math.floor(SIZE_X / 2);
+  const offsetZ = -Math.floor(SIZE_Z / 2);
+
+  for (let y = 0; y < SIZE_Y; y++) {
+    // 해당 층의 블록 타입별 좌표 수집
+    const byType = {};
+    for (let z = 0; z < SIZE_Z; z++) {
+      for (let x = 0; x < SIZE_X; x++) {
+        const id = world[y][z][x];
+        if (id === 0) continue;
+        if (!byType[id]) byType[id] = [];
+        byType[id].push({ x: x + offsetX, y, z: z + offsetZ });
+      }
+    }
+
+    // 각 블록 타입별로 InstancedMesh 생성
+    Object.keys(byType).forEach(idStr => {
+      const id = parseInt(idStr);
+      const list = byType[id];
+      const info = BLOCKS[id];
+      const instMesh = new THREE.InstancedMesh(boxGeo, getMaterial(id), list.length);
+
+      const dummy = new THREE.Object3D();
+      const sx = info.scaleX || 1;
+      const sy = info.scaleY || 1;
+      const sz = info.scaleZ || 1;
+      const yOffset = (1 - sy) / 2;
+
+      list.forEach((pos, idx) => {
+        dummy.position.set(pos.x, pos.y - yOffset, pos.z);
+        dummy.scale.set(sx, sy, sz);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(idx, dummy.matrix);
+      });
+      instMesh.instanceMatrix.needsUpdate = true;
+      layerGroups[y].add(instMesh);
+    });
+  }
+}
+
+build3DMeshes();
+
+// 현재 선택된 층을 강조하는 노란색 와이어프레임 박스
+const highlightGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(SIZE_X + 0.2, 1.05, SIZE_Z + 0.2));
+const highlightMat = new THREE.LineBasicMaterial({ color: 0xfacc15 });
+const layerHighlightBox = new THREE.LineSegments(highlightGeo, highlightMat);
+scene.add(layerHighlightBox);
+
+// ==========================================
+// 4. 2D 그리드 설계도 렌더링 & BOM 업데이트
+// ==========================================
+const gridCanvas = document.getElementById('grid-canvas');
+const gCtx = gridCanvas.getContext('2d');
+const CELL = 13; // 31 * 13 = 403px, 21 * 13 = 273px
+
+let currentMaxY = 17;
+let isSingleLayer = false;
+
+function draw2DGrid(layerY) {
+  gCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+
+  for (let z = 0; z < SIZE_Z; z++) {
+    for (let x = 0; x < SIZE_X; x++) {
+      const id = world[layerY][z][x];
+      const px = x * CELL;
+      const pz = z * CELL;
+
+      if (id === 0) {
+        // 빈 공간(공기)일 경우 아래층 블록을 흐릿하게 투영해 가이드 제공
+        let belowId = 0;
+        if (layerY > 0) belowId = world[layerY - 1][z][x];
+        if (belowId !== 0) {
+          gCtx.fillStyle = BLOCKS[belowId].color;
+          gCtx.globalAlpha = 0.18;
+          gCtx.fillRect(px, pz, CELL, CELL);
+          gCtx.globalAlpha = 1.0;
+        } else {
+          gCtx.fillStyle = '#0f172a';
+          gCtx.fillRect(px, pz, CELL, CELL);
+        }
+      } else {
+        gCtx.fillStyle = BLOCKS[id].color;
+        gCtx.fillRect(px, pz, CELL, CELL);
+      }
+
+      // 격자 선
+      gCtx.strokeStyle = (x % 5 === 0 || z % 5 === 0) ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)';
+      gCtx.lineWidth = 1;
+      gCtx.strokeRect(px, pz, CELL, CELL);
+    }
+  }
+}
+
+// 2D 그리드 마우스 호버 좌표 및 블록 이름 표시
+gridCanvas.addEventListener('mousemove', (e) => {
+  const rect = gridCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const mz = e.clientY - rect.top;
+  const gx = Math.floor(mx / CELL);
+  const gz = Math.floor(mz / CELL);
+
+  if (gx >= 0 && gx < SIZE_X && gz >= 0 && gz < SIZE_Z) {
+    const id = world[currentMaxY][gz][gx];
+    document.getElementById('coord-text').textContent = `좌표: X=${gx}, Y=${currentMaxY}, Z=${gz}`;
+    document.getElementById('block-text').textContent = BLOCKS[id].name;
+  }
+});
+
+// BOM (재료 산출) 리스트 업데이트
+function updateBOM() {
+  const counts = {};
+  let total = 0;
+
+  const startY = isSingleLayer ? currentMaxY : 0;
+  const endY = currentMaxY;
+
+  for (let y = startY; y <= endY; y++) {
+    for (let z = 0; z < SIZE_Z; z++) {
+      for (let x = 0; x < SIZE_X; x++) {
+        const id = world[y][z][x];
+        if (id === 0) continue;
+        counts[id] = (counts[id] || 0) + 1;
+        total++;
+      }
+    }
+  }
+
+  document.getElementById('bom-title').textContent = isSingleLayer
+    ? `📦 Y=${currentMaxY} 층 필요 재료`
+    : (currentMaxY === 17 ? `📦 전체 필요 재료 (BOM)` : `📦 Y=0~${currentMaxY} 누적 재료`);
+  document.getElementById('total-blocks').textContent = `총 ${total.toLocaleString()} 블록`;
+
+  const bomContainer = document.getElementById('bom-container');
+  bomContainer.innerHTML = '';
+
+  Object.keys(counts)
+    .map(id => ({ id: parseInt(id), count: counts[id] }))
+    .sort((a, b) => b.count - a.count)
+    .forEach(item => {
+      const info = BLOCKS[item.id];
+      const sets = Math.floor(item.count / 64);
+      const rem = item.count % 64;
+      const setStr = sets > 0 ? `(${sets}셋 + ${rem}개)` : '';
+
+      const row = document.createElement('div');
+      row.className = 'bom-item';
+      row.innerHTML = `
+        <div class="bom-left">
+          <div class="color-swatch" style="background:${info.color}"></div>
+          <span>${info.name}</span>
+        </div>
+        <span class="bom-count">${item.count.toLocaleString()}개 <span style="font-weight:400; color:#94a3b8; font-size:11px;">${setStr}</span></span>
+      `;
+      bomContainer.appendChild(row);
+    });
+}
+
+// 층 변경 통합 업데이트 함수
+function updateView() {
+  for (let y = 0; y < SIZE_Y; y++) {
+    if (isSingleLayer) {
+      layerGroups[y].visible = (y === currentMaxY);
+    } else {
+      layerGroups[y].visible = (y <= currentMaxY);
+    }
+  }
+
+  // 하이라이트 박스 위치 업데이트
+  layerHighlightBox.position.set(0, currentMaxY, 0);
+  layerHighlightBox.visible = (currentMaxY < 17 || isSingleLayer);
+
+  // 텍스트 및 UI 업데이트
+  const floorName = currentMaxY <= 5 ? 'B2 승강장' : (currentMaxY <= 11 ? 'B1 대합실' : '1F 지상');
+  document.getElementById('layer-label').textContent = `Y = ${currentMaxY} (${floorName})`;
+  document.getElementById('grid-layer-title').textContent = `현재 단면: Y = ${currentMaxY} (${floorName})`;
+  document.getElementById('layer-guide').textContent = LAYER_GUIDES[currentMaxY];
+  document.getElementById('layer-slider').value = currentMaxY;
+
+  draw2DGrid(currentMaxY);
+  updateBOM();
+}
+
+// ==========================================
+// 5. UI 이벤트 바인딩 및 애니메이션 루프
+// ==========================================
+const slider = document.getElementById('layer-slider');
+const chkSingle = document.getElementById('chk-single');
+const btnAll = document.getElementById('btn-all');
+
+slider.addEventListener('input', (e) => {
+  currentMaxY = parseInt(e.target.value);
+  btnAll.classList.toggle('active', currentMaxY === 17 && !isSingleLayer);
+  updateView();
+});
+
+chkSingle.addEventListener('change', (e) => {
+  isSingleLayer = e.target.checked;
+  btnAll.classList.toggle('active', currentMaxY === 17 && !isSingleLayer);
+  updateView();
+});
+
+document.getElementById('btn-prev').addEventListener('click', () => {
+  if (currentMaxY > 0) {
+    currentMaxY--;
+    btnAll.classList.remove('active');
+    updateView();
+  }
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (currentMaxY < 17) {
+    currentMaxY++;
+    btnAll.classList.toggle('active', currentMaxY === 17 && !isSingleLayer);
+    updateView();
+  }
+});
+
+btnAll.addEventListener('click', () => {
+  currentMaxY = 17;
+  isSingleLayer = false;
+  chkSingle.checked = false;
+  btnAll.classList.add('active');
+  updateView();
+});
+
+window.setLayerPreset = function(y, single) {
+  currentMaxY = y;
+  isSingleLayer = single;
+  chkSingle.checked = single;
+  btnAll.classList.toggle('active', y === 17 && !single);
+  updateView();
+};
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// 초기 뷰 세팅
+updateView();
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
